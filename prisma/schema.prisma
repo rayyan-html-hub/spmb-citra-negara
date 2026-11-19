@@ -1,0 +1,863 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  SISWA
+  ADMIN
+  KEPSEK
+}
+
+enum OtpPurpose {
+  ADMIN_LOGIN
+  PASSWORD_RESET
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum TestSubject {
+  LITERASI_BAHASA_INDONESIA
+  PENALARAN_MATEMATIKA
+  LITERASI_BAHASA_INGGRIS
+  PENGETAHUAN_UMUM
+}
+
+enum WaveStatus {
+  UPCOMING
+  OPEN
+  CLOSED
+}
+
+enum RegistrationStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  NEEDS_REVISION
+  APPROVED
+  REJECTED
+}
+
+enum AdmissionPath {
+  REGULER
+  PRESTASI
+  AFIRMASI
+  MUTASI
+}
+
+enum DocumentType {
+  BIRTH_CERTIFICATE
+  FAMILY_CARD
+  REPORT_CARD
+  PAS_PHOTO
+  GRADUATION_LETTER
+}
+
+enum DocumentStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  VERIFIED
+  NEEDS_REVISION
+  REJECTED
+}
+
+enum InvoiceStatus {
+  UNPAID
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  EXPIRED
+  CANCELLED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+  VIRTUAL_ACCOUNT
+  E_WALLET
+  CREDIT_CARD
+  QRIS
+  OTHER
+}
+
+enum RefundStatus {
+  REQUESTED
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REJECTED
+}
+
+enum QuestionBankStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum QuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+}
+
+enum TestSessionStatus {
+  DRAFT
+  SCHEDULED
+  OPEN
+  CLOSED
+  CANCELLED
+}
+
+enum TestAttemptStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  SUBMITTED
+  TIMED_OUT
+  GRADED
+}
+
+enum EligibilityStatus {
+  PENDING
+  ELIGIBLE
+  INELIGIBLE
+  OVERRIDDEN
+}
+
+enum SelectionStatus {
+  PASS
+  WAITLIST
+  FAIL
+}
+
+enum PublicationStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  SUPERSEDED
+}
+
+enum AnnouncementStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum NotificationType {
+  REGISTRATION
+  DOCUMENT
+  PAYMENT
+  TEST
+  SELECTION
+  ANNOUNCEMENT
+  SYSTEM
+}
+
+enum ReportExportStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum ReportFormat {
+  PDF
+  XLSX
+  CSV
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  VERIFY
+  REJECT
+  PUBLISH
+  EXPORT
+  PAYMENT
+  REFUND
+}
+
+enum SiteSettingType {
+  STRING
+  NUMBER
+  BOOLEAN
+  JSON
+}
+
+model User {
+  id              String                  @id @default(cuid())
+  name            String
+  email           String                  @unique
+  emailVerified   Boolean                 @default(false)
+  image           String?
+  role            UserRole                @default(SISWA)
+  createdAt       DateTime                @default(now())
+  updatedAt       DateTime                @updatedAt
+  accounts        Account[]
+  sessions        Session[]
+  applicant       Applicant?
+  otpCodes        OtpCode[]
+  reviews         DocumentReview[]
+  overrides       EligibilityOverride[]   @relation("EligibilityOverrideReviewer")
+  publications    Publication[]           @relation("PublicationAuthor")
+  announcements   Announcement[]          @relation("AnnouncementAuthor")
+  notifications   Notification[]
+  preferences     NotificationPreference?
+  reportExports   ReportExport[]
+  auditLogs       AuditLog[]              @relation("AuditActor")
+  updatedSettings SiteSetting[]           @relation("SiteSettingUpdater")
+
+  @@index([role])
+  @@index([createdAt])
+}
+
+model Account {
+  id                    String    @id @default(cuid())
+  accountId             String
+  providerId            String
+  userId                String
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  expiresAt DateTime
+  token     String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Verification {
+  id         String   @id @default(cuid())
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@index([expiresAt])
+}
+
+model OtpCode {
+  id         String     @id @default(cuid())
+  email      String
+  codeHash   String
+  purpose    OtpPurpose
+  expiresAt  DateTime
+  consumedAt DateTime?
+  lastSentAt DateTime   @default(now())
+  attempts   Int        @default(0)
+  userId     String?
+  user       User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime   @default(now())
+
+  @@index([email, purpose, expiresAt])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Applicant {
+  id                 String        @id @default(cuid())
+  userId             String        @unique
+  registrationNumber String?       @unique
+  nationalId         String?       @unique
+  fullName           String
+  birthPlace         String?
+  birthDate          DateTime?
+  gender             Gender?
+  religion           String?
+  phone              String?
+  email              String?
+  address            String?
+  postalCode         String?
+  city               String?
+  province           String?
+  photoUrl           String?
+  user               User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentData         ParentData?
+  schoolOrigin       SchoolOrigin?
+  registration       Registration?
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@index([fullName])
+  @@index([createdAt])
+}
+
+model ParentData {
+  id            String    @id @default(cuid())
+  applicantId   String    @unique
+  fatherName    String?
+  fatherPhone   String?
+  fatherJob     String?
+  motherName    String?
+  motherPhone   String?
+  motherJob     String?
+  guardianName  String?
+  guardianPhone String?
+  guardianJob   String?
+  familyIncome  Int?
+  address       String?
+  applicant     Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model SchoolOrigin {
+  id             String    @id @default(cuid())
+  applicantId    String    @unique
+  schoolName     String
+  schoolNpsn     String?
+  schoolAddress  String?
+  graduationYear Int?
+  studentNumber  String?
+  applicant      Applicant @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+}
+
+model Wave {
+  id               String            @id @default(cuid())
+  name             String
+  sequence         Int               @unique
+  startsAt         DateTime
+  endsAt           DateTime
+  status           WaveStatus        @default(UPCOMING)
+  registrations    Registration[]
+  eligibilityRules EligibilityRule[]
+  selectionResults SelectionResult[]
+  publications     Publication[]
+  announcements    Announcement[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  @@index([status])
+  @@index([startsAt, endsAt])
+  @@index([createdAt])
+}
+
+model Major {
+  id                     String                @id @default(cuid())
+  code                   String                @unique
+  name                   String
+  description            String?
+  quota                  Int                   @default(120)
+  isActive               Boolean               @default(true)
+  primaryRegistrations   Registration[]        @relation("PrimaryMajor")
+  alternateRegistrations Registration[]        @relation("AlternateMajor")
+  invoices               Invoice[]
+  eligibilityRules       EligibilityRule[]
+  eligibilityOverrides   EligibilityOverride[]
+  selectionResults       SelectionResult[]
+  announcements          Announcement[]
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model Registration {
+  id                   String                @id @default(cuid())
+  applicantId          String                @unique
+  waveId               String
+  registrationNumber   String                @unique
+  status               RegistrationStatus    @default(DRAFT)
+  admissionPath        AdmissionPath         @default(REGULER)
+  primaryMajorId       String
+  alternateMajorId     String?
+  submittedAt          DateTime?
+  reviewedAt           DateTime?
+  reviewNote           String?
+  applicant            Applicant             @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+  wave                 Wave                  @relation(fields: [waveId], references: [id], onDelete: Restrict)
+  primaryMajor         Major                 @relation("PrimaryMajor", fields: [primaryMajorId], references: [id], onDelete: Restrict)
+  alternateMajor       Major?                @relation("AlternateMajor", fields: [alternateMajorId], references: [id], onDelete: Restrict)
+  documents            Document[]
+  invoices             Invoice[]
+  testAttempts         TestAttempt[]
+  eligibilityOverrides EligibilityOverride[]
+  selectionResults     SelectionResult[]
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@index([status])
+  @@index([primaryMajorId])
+  @@index([alternateMajorId])
+  @@index([waveId])
+  @@index([createdAt])
+}
+
+model Document {
+  id             String           @id @default(cuid())
+  registrationId String
+  type           DocumentType
+  status         DocumentStatus   @default(SUBMITTED)
+  storageKey     String           @unique
+  originalName   String
+  mimeType       String
+  sizeBytes      Int
+  uploadedAt     DateTime         @default(now())
+  registration   Registration     @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  reviews        DocumentReview[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([status])
+  @@index([registrationId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model DocumentReview {
+  id         String         @id @default(cuid())
+  documentId String
+  reviewerId String
+  status     DocumentStatus
+  note       String?
+  reviewedAt DateTime       @default(now())
+  document   Document       @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  reviewer   User           @relation(fields: [reviewerId], references: [id], onDelete: Restrict)
+  createdAt  DateTime       @default(now())
+
+  @@index([documentId])
+  @@index([reviewerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  registrationId  String
+  majorId         String?
+  status          InvoiceStatus @default(UNPAID)
+  registrationFee Int           @default(250000)
+  testFee         Int           @default(100000)
+  serviceFee      Int           @default(0)
+  totalAmount     Int
+  currency        String        @default("IDR")
+  issuedAt        DateTime      @default(now())
+  dueAt           DateTime?
+  paidAt          DateTime?
+  registration    Registration  @relation(fields: [registrationId], references: [id], onDelete: Restrict)
+  major           Major?        @relation(fields: [majorId], references: [id], onDelete: SetNull)
+  payments        Payment[]
+  receipts        Receipt[]
+  refunds         Refund[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@index([status])
+  @@index([registrationId])
+  @@index([majorId])
+  @@index([createdAt])
+}
+
+model Payment {
+  id                    String         @id @default(cuid())
+  invoiceId             String
+  status                PaymentStatus  @default(PENDING)
+  method                PaymentMethod?
+  amount                Int
+  provider              String         @default("midtrans")
+  providerOrderId       String?        @unique
+  providerTransactionId String?        @unique
+  providerReference     String?
+  paidAt                DateTime?
+  expiresAt             DateTime?
+  failureMessage        String?
+  webhookPayload        Json?
+  invoice               Invoice        @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  refunds               Refund[]
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
+
+  @@index([status])
+  @@index([invoiceId])
+  @@index([createdAt])
+}
+
+model Refund {
+  id          String       @id @default(cuid())
+  invoiceId   String
+  paymentId   String?
+  status      RefundStatus @default(REQUESTED)
+  amount      Int
+  reason      String
+  providerId  String?      @unique
+  requestedAt DateTime     @default(now())
+  processedAt DateTime?
+  invoice     Invoice      @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  payment     Payment?     @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@index([status])
+  @@index([invoiceId])
+  @@index([paymentId])
+  @@index([createdAt])
+}
+
+model Receipt {
+  id            String   @id @default(cuid())
+  receiptNumber String   @unique
+  invoiceId     String
+  amount        Int
+  issuedAt      DateTime @default(now())
+  storageKey    String?
+  invoice       Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  createdAt     DateTime @default(now())
+
+  @@index([invoiceId])
+  @@index([createdAt])
+}
+
+model QuestionBank {
+  id           String             @id @default(cuid())
+  name         String
+  subject      TestSubject
+  description  String?
+  status       QuestionBankStatus @default(DRAFT)
+  questions    Question[]
+  testSessions TestSession[]
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  @@index([status])
+  @@index([subject])
+  @@index([createdAt])
+}
+
+model Question {
+  id             String           @id @default(cuid())
+  questionBankId String
+  type           QuestionType     @default(SINGLE_CHOICE)
+  prompt         String
+  explanation    String?
+  points         Float            @default(1)
+  order          Int
+  isActive       Boolean          @default(true)
+  questionBank   QuestionBank     @relation(fields: [questionBankId], references: [id], onDelete: Cascade)
+  options        QuestionOption[]
+  answers        Answer[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([questionBankId, order])
+  @@index([questionBankId])
+  @@index([createdAt])
+}
+
+model QuestionOption {
+  id         String   @id @default(cuid())
+  questionId String
+  text       String
+  isCorrect  Boolean  @default(false)
+  order      Int
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answers    Answer[]
+
+  @@unique([questionId, order])
+  @@index([questionId])
+}
+
+model TestSession {
+  id                  String            @id @default(cuid())
+  name                String
+  subject             TestSubject
+  questionBankId      String?
+  status              TestSessionStatus @default(DRAFT)
+  startsAt            DateTime?
+  endsAt              DateTime?
+  durationMinutes     Int               @default(60)
+  questionCount       Int               @default(40)
+  testSessionAttempts TestAttempt[]
+  questionBank        QuestionBank?     @relation(fields: [questionBankId], references: [id], onDelete: SetNull)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@index([status])
+  @@index([questionBankId])
+  @@index([createdAt])
+}
+
+model TestAttempt {
+  id             String            @id @default(cuid())
+  testSessionId  String
+  registrationId String
+  attemptNumber  Int               @default(1)
+  status         TestAttemptStatus @default(NOT_STARTED)
+  startedAt      DateTime?
+  submittedAt    DateTime?
+  score          Float?
+  correctCount   Int?
+  testSession    TestSession       @relation(fields: [testSessionId], references: [id], onDelete: Restrict)
+  registration   Registration      @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  answers        Answer[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@unique([testSessionId, registrationId, attemptNumber])
+  @@index([status])
+  @@index([registrationId])
+  @@index([testSessionId])
+  @@index([createdAt])
+}
+
+model Answer {
+  id                String          @id @default(cuid())
+  testAttemptId     String
+  questionId        String
+  selectedOptionId  String?
+  selectedOptionIds Json?
+  textAnswer        String?
+  isCorrect         Boolean?
+  pointsAwarded     Float?
+  answeredAt        DateTime?
+  testAttempt       TestAttempt     @relation(fields: [testAttemptId], references: [id], onDelete: Cascade)
+  question          Question        @relation(fields: [questionId], references: [id], onDelete: Restrict)
+  selectedOption    QuestionOption? @relation(fields: [selectedOptionId], references: [id], onDelete: SetNull)
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([testAttemptId, questionId])
+  @@index([questionId])
+  @@index([selectedOptionId])
+  @@index([createdAt])
+}
+
+model EligibilityRule {
+  id                 String                @id @default(cuid())
+  name               String
+  waveId             String?
+  majorId            String?
+  minimumFinalScore  Float                 @default(70)
+  minimumIndonesian  Float?
+  minimumMathematics Float?
+  minimumEnglish     Float?
+  minimumGeneral     Float?
+  isActive           Boolean               @default(true)
+  wave               Wave?                 @relation(fields: [waveId], references: [id], onDelete: Cascade)
+  major              Major?                @relation(fields: [majorId], references: [id], onDelete: Cascade)
+  overrides          EligibilityOverride[]
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@index([waveId])
+  @@index([majorId])
+  @@index([isActive])
+  @@index([createdAt])
+}
+
+model EligibilityOverride {
+  id             String            @id @default(cuid())
+  registrationId String
+  ruleId         String?
+  majorId        String?
+  reviewerId     String
+  status         EligibilityStatus
+  reason         String
+  registration   Registration      @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  rule           EligibilityRule?  @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  major          Major?            @relation(fields: [majorId], references: [id], onDelete: SetNull)
+  reviewer       User              @relation("EligibilityOverrideReviewer", fields: [reviewerId], references: [id], onDelete: Restrict)
+  createdAt      DateTime          @default(now())
+
+  @@index([registrationId])
+  @@index([ruleId])
+  @@index([majorId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model SelectionResult {
+  id               String          @id @default(cuid())
+  registrationId   String
+  waveId           String
+  majorId          String
+  status           SelectionStatus
+  rank             Int?
+  finalScore       Float?
+  mathematicsScore Float?
+  registeredAt     DateTime
+  publicationId    String?
+  publishedAt      DateTime?
+  registration     Registration    @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  wave             Wave            @relation(fields: [waveId], references: [id], onDelete: Restrict)
+  major            Major           @relation(fields: [majorId], references: [id], onDelete: Restrict)
+  publication      Publication?    @relation(fields: [publicationId], references: [id], onDelete: SetNull)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@unique([registrationId, majorId])
+  @@index([status])
+  @@index([majorId])
+  @@index([waveId])
+  @@index([publicationId])
+  @@index([createdAt])
+}
+
+model Publication {
+  id          String            @id @default(cuid())
+  waveId      String
+  status      PublicationStatus @default(DRAFT)
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  reason      String?
+  version     Int               @default(1)
+  authorId    String
+  wave        Wave              @relation(fields: [waveId], references: [id], onDelete: Restrict)
+  author      User              @relation("PublicationAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  results     SelectionResult[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@unique([waveId, version])
+  @@index([status])
+  @@index([waveId])
+  @@index([scheduledAt])
+  @@index([createdAt])
+}
+
+model Announcement {
+  id          String             @id @default(cuid())
+  title       String
+  body        String
+  status      AnnouncementStatus @default(DRAFT)
+  waveId      String?
+  majorId     String?
+  publishAt   DateTime?
+  publishedAt DateTime?
+  authorId    String
+  wave        Wave?              @relation(fields: [waveId], references: [id], onDelete: SetNull)
+  major       Major?             @relation(fields: [majorId], references: [id], onDelete: SetNull)
+  author      User               @relation("AnnouncementAuthor", fields: [authorId], references: [id], onDelete: Restrict)
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([status])
+  @@index([waveId])
+  @@index([majorId])
+  @@index([publishAt])
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType @default(SYSTEM)
+  title     String
+  message   String
+  href      String?
+  readAt    DateTime?
+  metadata  Json?
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now())
+
+  @@index([userId, readAt])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model NotificationPreference {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  inAppEnabled        Boolean  @default(true)
+  emailEnabled        Boolean  @default(true)
+  registrationUpdates Boolean  @default(true)
+  documentUpdates     Boolean  @default(true)
+  paymentUpdates      Boolean  @default(true)
+  testUpdates         Boolean  @default(true)
+  selectionUpdates    Boolean  @default(true)
+  announcementUpdates Boolean  @default(true)
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model ReportExport {
+  id            String             @id @default(cuid())
+  requestedById String
+  reportType    String
+  format        ReportFormat
+  status        ReportExportStatus @default(QUEUED)
+  filters       Json?
+  storageKey    String?
+  errorMessage  String?
+  requestedBy   User               @relation(fields: [requestedById], references: [id], onDelete: Restrict)
+  completedAt   DateTime?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([status])
+  @@index([requestedById])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  actorId   String?
+  action    AuditAction
+  entity    String
+  entityId  String?
+  changes   Json?
+  ipAddress String?
+  actor     User?       @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt DateTime    @default(now())
+
+  @@index([actorId])
+  @@index([action])
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
+
+model SiteSetting {
+  id          String          @id @default(cuid())
+  key         String          @unique
+  value       String
+  type        SiteSettingType @default(STRING)
+  description String?
+  updatedById String?
+  updatedBy   User?           @relation("SiteSettingUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
