@@ -11,6 +11,10 @@ function redirectTo(request: NextRequest, pathname: string) {
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
 
+  if (pathname === "/admin/login" && request.headers.has("next-action")) {
+    return NextResponse.next();
+  }
+
   if (pathname === "/admin/login") {
     try {
       const access = await getRoleSession(request.headers, "ADMIN", {
