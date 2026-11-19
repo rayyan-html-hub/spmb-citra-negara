@@ -94,23 +94,23 @@ async function main() {
     },
   });
 
-  const existingAccount = await prisma.account.findUnique({
+  const passwordHash = await hashPassword(adminPassword);
+  await prisma.account.upsert({
     where: { id: `seed-credential-${admin.id}` },
-    select: { id: true },
+    update: {
+      accountId: admin.id,
+      providerId: "credential",
+      userId: admin.id,
+      password: passwordHash,
+    },
+    create: {
+      id: `seed-credential-${admin.id}`,
+      accountId: admin.id,
+      providerId: "credential",
+      userId: admin.id,
+      password: passwordHash,
+    },
   });
-
-  if (!existingAccount) {
-    const passwordHash = await hashPassword(adminPassword);
-    await prisma.account.create({
-      data: {
-        id: `seed-credential-${admin.id}`,
-        accountId: admin.id,
-        providerId: "credential",
-        userId: admin.id,
-        password: passwordHash,
-      },
-    });
-  }
 
   console.info("Database seed completed.");
 }

@@ -17,19 +17,28 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { Footer } from "@/components/layout/footer";
 import { PageHeader } from "@/components/ui/page-header";
+import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
 
 const adminNavigation = [
   { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
   { label: "Pendaftaran Siswa", href: "/admin/pendaftaran", icon: UsersRound },
-  { label: "Verifikasi Berkas", href: "/admin/verifikasi-berkas", icon: FileCheck2 },
+  {
+    label: "Verifikasi Berkas",
+    href: "/admin/verifikasi-berkas",
+    icon: FileCheck2,
+  },
   { label: "Bank Soal TKA", href: "/admin/bank-soal", icon: Folder },
   { label: "Manajemen Tes", href: "/admin/manajemen-tes", icon: ClipboardList },
-  { label: "Kelayakan TKA", href: "/admin/kelayakan-tka", icon: ClipboardCheck },
+  {
+    label: "Kelayakan TKA",
+    href: "/admin/kelayakan-tka",
+    icon: ClipboardCheck,
+  },
   { label: "Seleksi Siswa", href: "/admin/seleksi", icon: GraduationCap },
   { label: "Pengumuman", href: "/admin/pengumuman", icon: Megaphone },
   { label: "Laporan & Analitik", href: "/admin/laporan", icon: FileBarChart },
@@ -38,8 +47,7 @@ const adminNavigation = [
 
 function getCurrentPage(pathname: string) {
   return (
-    adminNavigation.find((item) => item.href === pathname) ??
-    adminNavigation[0]
+    adminNavigation.find((item) => item.href === pathname) ?? adminNavigation[0]
   );
 }
 
@@ -59,7 +67,9 @@ function AdminSidebar({
       >
         <GraduationCap aria-hidden="true" size={30} />
         <span>
-          <span className="block text-xl font-semibold leading-6">Citra Negara</span>
+          <span className="block text-xl font-semibold leading-6">
+            Citra Negara
+          </span>
           <span className="text-sidebar-caption mt-1 block tracking-wide">
             PORTAL SPMB
           </span>
@@ -76,9 +86,7 @@ function AdminSidebar({
               aria-current={isActive ? "page" : undefined}
               className={cn(
                 "flex h-9 shrink-0 items-center gap-3 whitespace-nowrap rounded-full px-3 text-sm font-medium transition",
-                isActive
-                  ? "bg-white text-ink"
-                  : "text-white hover:bg-white/10",
+                isActive ? "bg-white text-ink" : "text-white hover:bg-white/10",
               )}
               href={href}
               key={href}
@@ -93,11 +101,44 @@ function AdminSidebar({
       <div className="text-sidebar-card mt-6 rounded-2xl bg-[#333333] p-4">
         <p className="font-semibold">Panitia SPMB</p>
         <p className="mt-3">Akses pengelolaan</p>
-        <button className="mt-3 inline-flex items-center gap-2" type="button">
-          Keluar dari akun <LogOut aria-hidden="true" size={14} />
-        </button>
+        <AdminSignOutButton />
       </div>
     </div>
+  );
+}
+
+function AdminSignOutButton() {
+  const router = useRouter();
+  const [errorMessage, setErrorMessage] = useState("");
+
+  async function signOut() {
+    setErrorMessage("");
+    const result = await authClient.signOut();
+
+    if (result.error) {
+      setErrorMessage("Tidak dapat keluar. Coba lagi.");
+      return;
+    }
+
+    router.replace("/admin/login");
+    router.refresh();
+  }
+
+  return (
+    <>
+      <button
+        className="mt-3 inline-flex items-center gap-2"
+        onClick={signOut}
+        type="button"
+      >
+        Keluar dari akun <LogOut aria-hidden="true" size={14} />
+      </button>
+      {errorMessage && (
+        <p className="mt-2 text-xs text-white" role="alert">
+          {errorMessage}
+        </p>
+      )}
+    </>
   );
 }
 
@@ -106,7 +147,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const currentPage = getCurrentPage(pathname);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  if (pathname === "/admin/login") {
+  if (pathname === "/admin/login" || pathname === "/admin/verifikasi-otp") {
     return <>{children}</>;
   }
 
