@@ -106,6 +106,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
   const currentPage = getCurrentPage(pathname);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  if (pathname === "/admin/login") {
+    return <>{children}</>;
+  }
+
   return (
     <div className="min-h-screen bg-bg lg:pl-[248px]">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] shrink-0 lg:block">
