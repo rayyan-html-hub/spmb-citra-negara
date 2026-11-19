@@ -2,6 +2,8 @@
 @import "tw-animate-css";
 
 :root {
+  font-size: 16px;
+
   --green: #16a34a;
   --side: #15803d;
   --dark: #166534;
@@ -66,11 +68,44 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: var(--radius);
-  --spacing: 0.5rem;
+  --spacing: 0.25rem;
+}
+
+.text-sidebar-caption {
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.text-sidebar-card {
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.text-topbar-title {
+  font-size: 22px;
+  line-height: 28px;
+}
+
+.text-topbar-meta,
+.text-breadcrumb,
+.text-footer-meta {
+  font-size: 13px;
+  line-height: 20px;
+}
+
+.text-page-title {
+  font-size: 32px;
+  line-height: 40px;
+}
+
+.text-footer-title {
+  font-size: 15px;
+  line-height: 24px;
 }
 
 body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-inter), sans-serif;
+  font-size: 14px;
 }

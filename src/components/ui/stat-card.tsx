@@ -15,7 +15,7 @@ export function StatCard({ label, value, detail, icon }: StatCardProps) {
         <p className="text-sm text-muted">{label}</p>
         {icon && <span className="text-green">{icon}</span>}
       </div>
-      <p className="mt-4 text-3xl font-bold tracking-tight text-ink">{value}</p>
+      <p className="mt-4 text-4xl font-bold tracking-tight text-ink">{value}</p>
       {detail && <p className="mt-3 text-xs text-muted">{detail}</p>}
     </Card>
   );

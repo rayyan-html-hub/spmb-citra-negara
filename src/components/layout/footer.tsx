@@ -36,7 +36,7 @@ function FooterLinkList({
 }) {
   return (
     <div>
-      <h2 className="mb-4 text-sm font-semibold text-white">{title}</h2>
+      <h2 className="text-footer-title mb-4 font-bold text-white">{title}</h2>
       <ul className="space-y-3">
         {links.map((link) => (
           <li key={link.label}>
@@ -58,7 +58,7 @@ function FooterContact() {
 
   return (
     <div>
-      <h2 className="mb-4 text-sm font-semibold text-white">Kontak</h2>
+      <h2 className="text-footer-title mb-4 font-bold text-white">Kontak</h2>
       <div className="space-y-3 text-sm text-white/85">
         <p>{contact.address}</p>
         <p>Telepon: {contact.telephone}</p>
@@ -67,7 +67,7 @@ function FooterContact() {
         <p>{contact.hours}</p>
       </div>
       <a
-        className="mt-5 inline-flex min-h-11 w-full max-w-52 items-center justify-center rounded-xl bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-light"
+        className="mt-5 inline-flex min-h-[46px] w-full max-w-[210px] items-center justify-center rounded-xl bg-white px-4 py-2 text-sm font-semibold text-ink transition hover:bg-light"
         href={`mailto:${contact.email}`}
       >
         Hubungi Panitia
@@ -90,14 +90,14 @@ function FooterColumns() {
 export function Footer() {
   return (
     <footer className="mt-auto bg-dark text-white">
-      <div className="mx-auto max-w-[1440px] px-6 py-10 sm:px-8 lg:px-9 lg:py-12">
+      <div className="mx-auto max-w-[1128px] px-6 py-10 sm:px-8 lg:px-9 lg:py-12">
         <div className="hidden grid-cols-4 gap-8 lg:grid lg:gap-12">
           <FooterColumns />
         </div>
         <div className="space-y-1 lg:hidden">
           <FooterBrand />
           <details className="group border-b border-white/15 py-4">
-            <summary className="cursor-pointer list-none text-sm font-semibold">
+            <summary className="text-footer-title cursor-pointer list-none font-bold">
               Tautan Cepat
               <span className="float-right transition group-open:rotate-180">⌄</span>
             </summary>
@@ -112,7 +112,7 @@ export function Footer() {
             </ul>
           </details>
           <details className="group border-b border-white/15 py-4">
-            <summary className="cursor-pointer list-none text-sm font-semibold">
+            <summary className="text-footer-title cursor-pointer list-none font-bold">
               Portal
               <span className="float-right transition group-open:rotate-180">⌄</span>
             </summary>
@@ -127,7 +127,7 @@ export function Footer() {
             </ul>
           </details>
           <details className="group border-b border-white/15 py-4">
-            <summary className="cursor-pointer list-none text-sm font-semibold">
+            <summary className="text-footer-title cursor-pointer list-none font-bold">
               Kontak
               <span className="float-right transition group-open:rotate-180">⌄</span>
             </summary>
@@ -136,7 +136,7 @@ export function Footer() {
             </div>
           </details>
         </div>
-        <div className="mt-8 flex flex-col gap-3 border-t border-white/15 pt-4 text-xs text-white/85 sm:flex-row sm:items-center sm:justify-between">
+        <div className="text-footer-meta mt-8 flex flex-col gap-3 border-t border-white/15 pt-4 text-white/85 sm:flex-row sm:items-center sm:justify-between">
           <p>© 2025 SMK Citra Negara</p>
           <p>Kebijakan Privasi · Syarat · Bantuan</p>
           <p className="inline-flex items-center gap-2">

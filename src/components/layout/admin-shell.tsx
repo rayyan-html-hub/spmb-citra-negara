@@ -51,7 +51,7 @@ function AdminSidebar({
   onNavigate?: () => void;
 }) {
   return (
-    <div className="flex h-full flex-col bg-side px-5 py-7 text-white">
+    <div className="flex h-full flex-col bg-side px-4 py-4 text-white">
       <Link
         className="mb-8 inline-flex items-center gap-3"
         href="/admin/dashboard"
@@ -59,11 +59,15 @@ function AdminSidebar({
       >
         <GraduationCap aria-hidden="true" size={30} />
         <span>
-          <span className="block text-lg font-semibold leading-5">Citra Negara</span>
-          <span className="mt-1 block text-[10px] tracking-wide">PORTAL SPMB</span>
+          <span className="block text-xl font-semibold leading-6">Citra Negara</span>
+          <span className="text-sidebar-caption mt-1 block tracking-wide">
+            PORTAL SPMB
+          </span>
         </span>
       </Link>
-      <p className="mb-5 text-[11px] font-semibold">PENGELOLAAN SPMB</p>
+      <p className="text-sidebar-caption mb-5 font-semibold">
+        PENGELOLAAN SPMB
+      </p>
       <nav aria-label="Navigasi Admin" className="space-y-1">
         {adminNavigation.map(({ label, href, icon: Icon }) => {
           const isActive = pathname === href;
@@ -71,7 +75,7 @@ function AdminSidebar({
             <Link
               aria-current={isActive ? "page" : undefined}
               className={cn(
-                "flex min-h-9 items-center gap-3 rounded-full px-3 text-[13px] font-medium transition",
+                "flex h-9 shrink-0 items-center gap-3 whitespace-nowrap rounded-full px-3 text-sm font-medium transition",
                 isActive
                   ? "bg-white text-ink"
                   : "text-white hover:bg-white/10",
@@ -80,13 +84,13 @@ function AdminSidebar({
               key={href}
               onClick={onNavigate}
             >
-              <Icon aria-hidden="true" size={16} />
+              <Icon aria-hidden="true" className="shrink-0" size={18} />
               {label}
             </Link>
           );
         })}
       </nav>
-      <div className="mt-6 rounded-2xl bg-[#333333] p-4 text-xs">
+      <div className="text-sidebar-card mt-6 rounded-2xl bg-[#333333] p-4">
         <p className="font-semibold">Panitia SPMB</p>
         <p className="mt-3">Akses pengelolaan</p>
         <button className="mt-3 inline-flex items-center gap-2" type="button">
@@ -104,7 +108,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-bg lg:pl-[248px]">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] lg:block">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] shrink-0 lg:block">
         <AdminSidebar pathname={pathname} />
       </aside>
       {drawerOpen && (
@@ -132,7 +136,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
         </div>
       )}
       <div className="flex min-h-screen flex-col">
-        <header className="flex min-h-[100px] flex-col justify-center gap-3 bg-white px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-8">
+        <header className="flex min-h-[100px] flex-col justify-center gap-3 bg-white px-5 py-5 sm:h-[100px] sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:px-8">
           <div className="flex min-w-0 items-center gap-3">
             <button
               aria-label="Buka menu"
@@ -143,24 +147,31 @@ export function AdminShell({ children }: { children: ReactNode }) {
               <Menu aria-hidden="true" size={22} />
             </button>
             <div>
-              <p className="text-lg font-semibold text-ink">{currentPage.label}</p>
-              <p className="mt-1 text-xs text-muted sm:text-sm">
+              <p className="text-topbar-title font-bold text-ink">
+                {currentPage.label}
+              </p>
+              <p className="text-topbar-meta mt-1 text-muted">
                 Tahun Ajaran 2025/2026 · Gelombang 1
               </p>
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2 self-end whitespace-nowrap text-dark sm:gap-4">
+          <div className="text-topbar-meta flex shrink-0 items-center gap-2 self-end whitespace-nowrap text-dark sm:gap-4">
             <Bell aria-hidden="true" size={20} />
-            <p className="text-xs sm:text-sm">3 notifikasi · Admin SPMB</p>
+            <p>3 notifikasi · Admin SPMB</p>
           </div>
         </header>
-        <main className="flex-1 px-5 py-7 sm:px-8 sm:py-8 lg:px-8">
-          <nav aria-label="Breadcrumb" className="mb-7 flex gap-3 text-xs text-muted">
-            <span>Portal Admin</span>
-            <span aria-hidden="true">/</span>
-            <span aria-current="page">{currentPage.label}</span>
-          </nav>
-          {children}
+        <main className="flex-1 px-5 py-7 sm:px-8 sm:py-8 lg:px-8 min-[1601px]:px-0">
+          <div className="mx-auto w-full min-[1601px]:max-w-[1200px]">
+            <nav
+              aria-label="Breadcrumb"
+              className="text-breadcrumb mb-7 flex gap-3 text-muted"
+            >
+              <span>Portal Admin</span>
+              <span aria-hidden="true">/</span>
+              <span aria-current="page">{currentPage.label}</span>
+            </nav>
+            {children}
+          </div>
         </main>
         <Footer />
       </div>
