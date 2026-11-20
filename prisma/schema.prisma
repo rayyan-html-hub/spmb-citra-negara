@@ -159,6 +159,7 @@ enum SelectionStatus {
 
 enum PublicationStatus {
   DRAFT
+  REVIEWED
   SCHEDULED
   PUBLISHED
   SUPERSEDED
@@ -756,6 +757,7 @@ model EligibilityAssessment {
   majorId         String
   ruleId          String?
   finalScore      Float
+  mathematicsScore Float
   minimumScore    Float
   status          EligibilityStatus
   calculatedAt    DateTime         @default(now())
@@ -815,7 +817,7 @@ model SelectionResult {
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 
-  @@unique([registrationId, majorId])
+  @@unique([publicationId, registrationId, majorId])
   @@index([status])
   @@index([majorId])
   @@index([waveId])

@@ -1539,6 +1539,7 @@ async function main() {
       waveId: result.waveId,
       majorId: result.majorId,
       finalScore: result.finalScore,
+      mathematicsScore: result.mathematicsScore ?? 0,
       minimumScore: 70,
       status: result.finalScore >= 70 ? "ELIGIBLE" : "INELIGIBLE",
       calculatedAt: wib("01-24T10:00:00"),
@@ -1926,6 +1927,18 @@ async function main() {
   assertCount("Hasil lulus", paidResultCount, 240);
   assertCount("Hasil cadangan", waitlistResultCount, 30);
   assertCount("Hasil tidak lulus", failedResultCount, 30);
+  assertCount(
+    "Peserta seleksi RPL",
+    selectionResults.filter((result) => result.majorId === majorIds.get("RPL"))
+      .length,
+    160,
+  );
+  assertCount(
+    "Peserta seleksi TKJ",
+    selectionResults.filter((result) => result.majorId === majorIds.get("TKJ"))
+      .length,
+    140,
+  );
   const [assessmentCount, eligibleAssessmentCount, ineligibleAssessmentCount] =
     await Promise.all([
       prisma.eligibilityAssessment.count({
