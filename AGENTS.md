@@ -41,3 +41,13 @@ KEAMANAN (wajib):
 STRUKTUR FOLDER: src/app (route group (public), (siswa), (admin), (kepsek)), src/components (ui, layout, feature), src/server (services, db, auth, storage, payments, pdf, reports), src/lib, src/config, prisma/ (schema.prisma, migrations, seed.ts), docs/.
 
 ATURAN KERJA: kerjakan per tahap; sebelum selesai jalankan npm run lint dan npm run build sampai lulus; commit kecil dengan Conventional Commits; jangan membuat fitur di luar tahap yang diminta; jika ada keputusan ambigu, pilih yang paling aman dan catat di docs/DECISIONS.md. Data seed memakai contoh dari desain (Rizky Aditya Pratama CN-2025-00128, Nadia Putri CN-2025-00129, Fajar Ramadhan CN-2025-00130, Dimas Saputra CN-2025-00132).
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+## This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->
