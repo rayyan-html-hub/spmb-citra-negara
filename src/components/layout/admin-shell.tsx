@@ -59,9 +59,9 @@ function AdminSidebar({
   onNavigate?: () => void;
 }) {
   return (
-    <div className="flex h-full flex-col bg-side px-4 py-4 text-white">
+    <div className="admin-sidebar-frame flex h-full min-h-0 flex-col bg-side px-4 py-4 text-white">
       <Link
-        className="mb-8 inline-flex items-center gap-3"
+        className="mb-8 inline-flex shrink-0 items-center gap-3"
         href="/admin/dashboard"
         onClick={onNavigate}
       >
@@ -75,10 +75,13 @@ function AdminSidebar({
           </span>
         </span>
       </Link>
-      <p className="text-sidebar-caption mb-5 font-semibold">
+      <p className="text-sidebar-caption mb-5 shrink-0 font-semibold">
         PENGELOLAAN SPMB
       </p>
-      <nav aria-label="Navigasi Admin" className="space-y-1">
+      <nav
+        aria-label="Navigasi Admin"
+        className="admin-sidebar-menu-scroll min-h-0 flex-1 space-y-1"
+      >
         {adminNavigation.map(({ label, href, icon: Icon }) => {
           const isActive = pathname === href;
           return (
@@ -98,7 +101,7 @@ function AdminSidebar({
           );
         })}
       </nav>
-      <div className="text-sidebar-card mt-6 rounded-2xl bg-[#333333] p-4">
+      <div className="text-sidebar-card mt-6 shrink-0 rounded-2xl bg-[#333333] p-4">
         <p className="font-semibold">Panitia SPMB</p>
         <p className="mt-3">Akses pengelolaan</p>
         <AdminSignOutButton />
@@ -153,7 +156,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-screen bg-bg lg:pl-[248px]">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[248px] shrink-0 lg:block">
+      <aside className="admin-sidebar-viewport fixed left-0 top-0 z-30 hidden w-[248px] shrink-0 lg:block">
         <AdminSidebar pathname={pathname} />
       </aside>
       {drawerOpen && (
@@ -164,7 +167,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
             onClick={() => setDrawerOpen(false)}
             type="button"
           />
-          <aside className="relative h-full w-[min(300px,85vw)]">
+          <aside className="admin-sidebar-viewport relative w-[min(300px,85vw)]">
             <button
               aria-label="Tutup menu"
               className="absolute right-3 top-3 z-10 rounded-full p-2 text-white hover:bg-white/10"
