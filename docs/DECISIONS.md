@@ -13,3 +13,9 @@
 - Status, tingkat kesulitan, kode unik, dan gambar disimpan per soal. `QuestionBank.status` lama tetap dipertahankan untuk kompatibilitas bank yang sudah dirujuk sesi tes; status soal menjadi sumber kebenaran untuk daftar dan soal aktif.
 - Migrasi Bank Soal hanya menambahkan kolom dan mengisi kode/status dari bank yang sudah ada; tidak ada tabel atau data soal yang dihapus.
 - Gambar soal untuk tahap ini disimpan sebagai byte di kolom database dengan validasi magic bytes dan batas 2 MB. Lapisan ini dapat diganti Vercel Blob privat; jangan mengandalkan filesystem deployment.
+
+## Manajemen Tes
+
+- Migrasi B4 hanya menambahkan ruangan dan opsi acak pada `TestSession`, waktu tambahan, koneksi, serta nilai per mata uji pada `TestAttempt`, dan tabel `TestSupervisionLog`; data sesi dan attempt lama tetap dipertahankan.
+- Sesi yang sedang berlangsung hanya dapat diubah pada kuota, dan nilainya tidak boleh turun di bawah jumlah peserta yang sudah dialokasikan.
+- Nilai per mata uji memakai seluruh soal Aktif pada empat mata uji sebagai bobot total, sehingga jawaban yang belum diisi tidak mengurangi denominator. Nilai hanya disimpan ketika attempt selesai.

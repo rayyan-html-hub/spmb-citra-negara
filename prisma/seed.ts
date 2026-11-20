@@ -371,10 +371,10 @@ type SeedAnswer = {
   id: string;
   testAttemptId: string;
   questionId: string;
-  selectedOptionId: string;
-  isCorrect: boolean;
-  pointsAwarded: number;
-  answeredAt: Date;
+  selectedOptionId: string | null;
+  isCorrect: boolean | null;
+  pointsAwarded: number | null;
+  answeredAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 };
@@ -1176,27 +1176,49 @@ async function main() {
 
   const labNames = [
     "Lab Komputer 2",
+    "Lab Komputer 2",
     "Lab Komputer 1",
     "Lab Komputer 3",
+    "Lab Komputer 1",
+    "Lab Komputer 2",
+    "Lab Komputer 3",
+    "Lab Komputer 1",
+    "Lab Komputer 2",
+    "Lab Komputer 3",
   ] as const;
-  const testStarts = ["01-18T08:00:00", "01-18T10:30:00", "01-18T13:00:00"];
+  const testStarts = [
+    "01-18T08:00:00",
+    "01-18T10:30:00",
+    "01-18T08:00:00",
+    "01-18T08:00:00",
+    "01-18T10:30:00",
+    "01-18T13:00:00",
+    "01-18T10:30:00",
+    "01-18T13:00:00",
+    "01-18T15:30:00",
+    "01-18T13:00:00",
+  ];
   const sessionRows = Array.from({ length: 10 }, (_, offset) => {
     const subject = TEST_SUBJECTS[offset % TEST_SUBJECTS.length];
     const sessionNumber = offset + 1;
-    const startsAt = wib(
-      testStarts[Math.floor((offset * testStarts.length) / 10)],
-    );
+    const startsAt = wib(testStarts[offset]);
     const endsAt = new Date(startsAt.getTime() + 120 * 60 * 1000);
     return {
       id: `seed-test-session-${pad(sessionNumber, 2)}`,
       name: `TKA Gelombang 1 · Sesi ${sessionNumber} · ${labNames[offset % labNames.length]}`,
       subject: subject.key,
       questionBankId: `seed-question-bank-${subject.code.toLowerCase()}-published`,
-      status: "CLOSED" as const,
+      status: (offset === 0 || offset === 2 ? "OPEN" : "SCHEDULED") as
+        | "OPEN"
+        | "SCHEDULED",
+      roomName: labNames[offset],
+      quota: 30,
       startsAt,
       endsAt,
       durationMinutes: 120,
       questionCount: 40,
+      shuffleQuestions: false,
+      shuffleOptions: false,
       createdAt: wib("01-06T00:00:00"),
       updatedAt: wib("01-18T15:00:00"),
     };
@@ -1205,13 +1227,49 @@ async function main() {
     data: sessionRows,
     skipDuplicates: true,
   });
+  for (const session of sessionRows) {
+    await prisma.testSession.update({
+      where: { id: session.id },
+      data: {
+        name: session.name,
+        status: session.status,
+        roomName: session.roomName,
+        quota: session.quota,
+        startsAt: session.startsAt,
+        endsAt: session.endsAt,
+        durationMinutes: session.durationMinutes,
+        shuffleQuestions: session.shuffleQuestions,
+        shuffleOptions: session.shuffleOptions,
+        updatedAt: session.updatedAt,
+      },
+    });
+  }
 
   const attempts = [];
   const answersBySubject = new Map<string, SeedAnswer[]>();
   for (const subject of TEST_SUBJECTS) {
     answersBySubject.set(subject.key, []);
   }
-  for (const [participantOffset, candidate] of rankedCandidates.entries()) {
+  const sessionCandidates = [...rankedCandidates];
+  for (const [targetPosition, registrationIndex] of [128, 129, 130].entries()) {
+    const currentPosition = sessionCandidates.findIndex(
+      (candidate) =>
+        candidate.registrationNumber === createRegistrationNumber(registrationIndex),
+    );
+    if (currentPosition < 0) {
+      throw new Error(`Missing sample test candidate ${registrationIndex}.`);
+    }
+    [sessionCandidates[targetPosition], sessionCandidates[currentPosition]] = [
+      sessionCandidates[currentPosition],
+      sessionCandidates[targetPosition],
+    ];
+  }
+  const sampleProgress = new Map([
+    [128, 28],
+    [129, 32],
+    [130, 40],
+  ]);
+  for (const [participantOffset, candidate] of sessionCandidates.entries()) {
     const sessionOffset = Math.floor(participantOffset / 30);
     const session = sessionRows[sessionOffset];
     const score = scoreByRegistration.get(candidate.registrationNumber);
@@ -1221,22 +1279,39 @@ async function main() {
       );
     }
     const startedAt = session.startsAt!;
-    const submittedAt = new Date(startedAt.getTime() + 90 * 60 * 1000);
+    const isInProgressSession = sessionOffset === 0;
+    const isCompleted =
+      !isInProgressSession || candidate.index === 130 || participantOffset === 29;
+    const progress = isCompleted
+      ? 40
+      : sampleProgress.get(candidate.index) ?? 18 + (participantOffset % 23);
+    const submittedAt = isCompleted
+      ? new Date(startedAt.getTime() + (isInProgressSession ? 40 : 90) * 60 * 1000)
+      : null;
     const attemptId = `seed-test-attempt-${pad(candidate.index)}`;
     attempts.push({
       id: attemptId,
       testSessionId: session.id,
       registrationId: candidate.registrationId,
       attemptNumber: 1,
-      status: "GRADED" as const,
+      status: isInProgressSession
+        ? isCompleted
+          ? ("SUBMITTED" as const)
+          : ("IN_PROGRESS" as const)
+        : ("GRADED" as const),
       startedAt,
       submittedAt,
-      score: score.finalScore,
-      correctCount: Math.round((score.finalScore / 100) * 40),
+      connectionStatus: isInProgressSession && !isCompleted ? "ONLINE" as const : "OFFLINE" as const,
+      score: isInProgressSession && !isCompleted ? null : score.finalScore,
+      correctCount:
+        isInProgressSession && !isCompleted
+          ? null
+          : Math.round((score.finalScore / 100) * 40),
       createdAt: startedAt,
-      updatedAt: submittedAt,
+      updatedAt: submittedAt ?? startedAt,
     });
 
+    let questionProgress = 0;
     for (const [subjectIndex, subject] of TEST_SUBJECTS.entries()) {
       const questionIds = publishedQuestionIdsBySubject.get(subject.key);
       if (!questionIds || questionIds.length < 10) {
@@ -1249,26 +1324,160 @@ async function main() {
         if (!correctOptionId) {
           throw new Error(`Missing correct option for question ${questionId}.`);
         }
+        const answered = questionProgress < progress;
         answersBySubject.get(subject.key)!.push({
           id: `${attemptId}-answer-${subject.code.toLowerCase()}-${pad(questionOffset + 1, 2)}`,
           testAttemptId: attemptId,
           questionId,
-          selectedOptionId: correctOptionId,
-          isCorrect: true,
-          pointsAwarded: subjectScore / 10,
-          answeredAt: submittedAt,
-          createdAt: submittedAt,
-          updatedAt: submittedAt,
+          selectedOptionId: answered ? correctOptionId : null,
+          isCorrect: answered && (!isInProgressSession || isCompleted) ? true : null,
+          pointsAwarded:
+            answered && (!isInProgressSession || isCompleted)
+              ? subjectScore / 10
+              : null,
+          answeredAt: answered ? submittedAt ?? startedAt : null,
+          createdAt: startedAt,
+          updatedAt: submittedAt ?? startedAt,
         });
+        questionProgress += 1;
       }
     }
   }
   await prisma.testAttempt.createMany({ data: attempts, skipDuplicates: true });
+  for (const attempt of attempts) {
+    await prisma.testAttempt.update({
+      where: { id: attempt.id },
+      data: {
+        testSessionId: attempt.testSessionId,
+        status: attempt.status,
+        startedAt: attempt.startedAt,
+        submittedAt: attempt.submittedAt,
+        connectionStatus: attempt.connectionStatus,
+        score: attempt.score,
+        correctCount: attempt.correctCount,
+        updatedAt: attempt.updatedAt,
+      },
+    });
+  }
   for (const answers of answersBySubject.values()) {
     await prisma.answer.createMany({
       data: answers,
       skipDuplicates: true,
     });
+  }
+  for (const attempt of attempts.filter((row) =>
+    row.testSessionId === sessionRows[0].id,
+  )) {
+    for (const subject of TEST_SUBJECTS) {
+      for (let questionOffset = 0; questionOffset < 10; questionOffset += 1) {
+        const answer = answersBySubject
+          .get(subject.key)!
+          .find(
+            (row) =>
+              row.testAttemptId === attempt.id &&
+              row.id.endsWith(`-${pad(questionOffset + 1, 2)}`),
+          );
+        if (!answer) continue;
+        await prisma.answer.update({
+          where: { id: answer.id },
+          data: {
+            selectedOptionId: answer.selectedOptionId,
+            isCorrect: answer.isCorrect,
+            pointsAwarded: answer.pointsAwarded,
+            answeredAt: answer.answeredAt,
+            updatedAt: answer.updatedAt,
+          },
+        });
+      }
+    }
+  }
+  await prisma.testSupervisionLog.createMany({
+    data: [
+      {
+        id: `seed-test-log-${year}-session-start`,
+        testSessionId: sessionRows[0].id,
+        action: "SESSION_STARTED",
+        detail: "Sesi 1 Lab Komputer 2 dimulai sesuai jadwal.",
+        createdAt: wib("01-18T08:00:00"),
+      },
+      {
+        id: `seed-test-log-${year}-connection-restored`,
+        testSessionId: sessionRows[0].id,
+        testAttemptId: `seed-test-attempt-${pad(128)}`,
+        action: "CONNECTION_RESTORED",
+        detail: `Koneksi peserta ${createRegistrationNumber(128)} pulih setelah gangguan singkat.`,
+        createdAt: wib("01-18T08:42:00"),
+      },
+    ],
+    skipDuplicates: true,
+  });
+  const [seededSessions, sessionOneAttempts] = await Promise.all([
+    prisma.testSession.findMany({
+      where: { id: { startsWith: "seed-test-session-" } },
+      select: {
+        id: true,
+        roomName: true,
+        _count: { select: { testSessionAttempts: true } },
+      },
+    }),
+    prisma.testAttempt.findMany({
+      where: { testSessionId: sessionRows[0].id },
+      select: {
+        status: true,
+        registration: {
+          select: {
+            registrationNumber: true,
+            applicant: { select: { fullName: true } },
+          },
+        },
+        answers: {
+          where: { answeredAt: { not: null } },
+          select: { id: true },
+        },
+      },
+    }),
+  ]);
+  assertCount("Sesi tes", seededSessions.length, 10);
+  assertCount(
+    "Peserta terjadwal",
+    seededSessions.reduce((total, session) => total + session._count.testSessionAttempts, 0),
+    TEST_PARTICIPANT_COUNT,
+  );
+  assertCount(
+    "Laboratorium tes",
+    new Set(seededSessions.map((session) => session.roomName)).size,
+    3,
+  );
+  assertCount(
+    "Peserta sedang mengerjakan sesi 1",
+    sessionOneAttempts.filter((attempt) => attempt.status === "IN_PROGRESS").length,
+    28,
+  );
+  assertCount(
+    "Peserta selesai sesi 1",
+    sessionOneAttempts.filter((attempt) => attempt.status === "SUBMITTED").length,
+    2,
+  );
+  assertCount(
+    "Peserta belum mulai sesi 1",
+    sessionOneAttempts.filter((attempt) => attempt.status === "NOT_STARTED").length,
+    0,
+  );
+  for (const [registrationIndex, expectedProgress] of [
+    [128, 28],
+    [129, 32],
+    [130, 40],
+  ] as const) {
+    const sample = sessionOneAttempts.find(
+      (attempt) =>
+        attempt.registration.registrationNumber ===
+        createRegistrationNumber(registrationIndex),
+    );
+    if (!sample || sample.answers.length !== expectedProgress) {
+      throw new Error(
+        `Test-session progress fixture is invalid for sample ${registrationIndex}.`,
+      );
+    }
   }
 
   const publicationId = `seed-publication-${year}-v1`;
@@ -1688,7 +1897,7 @@ async function main() {
   assertCount("Pengumuman TKA dibaca", publishedReadCount, 420);
   assertCount("Panduan pembayaran dibaca", paymentReadCount, 456);
 
-  const [paidResultCount, waitlistResultCount, failedResultCount, testScores] =
+  const [paidResultCount, waitlistResultCount, failedResultCount] =
     await Promise.all([
       prisma.selectionResult.count({
         where: { id: { startsWith: "seed-selection-" }, status: "PASS" },
@@ -1699,29 +1908,18 @@ async function main() {
       prisma.selectionResult.count({
         where: { id: { startsWith: "seed-selection-" }, status: "FAIL" },
       }),
-      prisma.testAttempt.findMany({
-        where: { id: { startsWith: "seed-test-attempt-" } },
-        select: { score: true },
-      }),
     ]);
   assertCount("Hasil lulus", paidResultCount, 240);
   assertCount("Hasil cadangan", waitlistResultCount, 30);
   assertCount("Hasil tidak lulus", failedResultCount, 30);
+  const seededScores = [...scoreByRegistration.values()].map(
+    (score) => score.finalScore,
+  );
   const scoreBands = {
-    below70: testScores.filter(
-      (attempt) => attempt.score !== null && attempt.score < 70,
-    ).length,
-    from70To79: testScores.filter(
-      (attempt) =>
-        attempt.score !== null && attempt.score >= 70 && attempt.score < 80,
-    ).length,
-    from80To899: testScores.filter(
-      (attempt) =>
-        attempt.score !== null && attempt.score >= 80 && attempt.score < 90,
-    ).length,
-    above90: testScores.filter(
-      (attempt) => attempt.score !== null && attempt.score > 90,
-    ).length,
+    below70: seededScores.filter((score) => score < 70).length,
+    from70To79: seededScores.filter((score) => score >= 70 && score < 80).length,
+    from80To899: seededScores.filter((score) => score >= 80 && score < 90).length,
+    above90: seededScores.filter((score) => score > 90).length,
   };
   assertCount("Nilai di bawah 70", scoreBands.below70, 30);
   assertCount("Nilai 70-79,9", scoreBands.from70To79, 120);
@@ -1729,9 +1927,7 @@ async function main() {
   assertCount("Nilai di atas 90", scoreBands.above90, 28);
   assertCount(
     "Peserta memenuhi ambang",
-    testScores.filter(
-      (attempt) => attempt.score !== null && attempt.score >= 70,
-    ).length,
+    seededScores.filter((score) => score >= 70).length,
     270,
   );
 

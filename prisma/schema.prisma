@@ -138,6 +138,11 @@ enum TestAttemptStatus {
   GRADED
 }
 
+enum TestConnectionStatus {
+  ONLINE
+  OFFLINE
+}
+
 enum EligibilityStatus {
   PENDING
   ELIGIBLE
@@ -230,6 +235,7 @@ model User {
   preferences     NotificationPreference?
   reportExports   ReportExport[]
   auditLogs       AuditLog[]              @relation("AuditActor")
+  testSupervisionLogs TestSupervisionLog[] @relation("TestSupervisionActor")
   updatedSettings SiteSetting[]           @relation("SiteSettingUpdater")
 
   @@index([role])
@@ -631,11 +637,16 @@ model TestSession {
   subject             TestSubject
   questionBankId      String?
   status              TestSessionStatus @default(DRAFT)
+  roomName            String            @default("Lab Komputer 1")
+  quota               Int               @default(30)
   startsAt            DateTime?
   endsAt              DateTime?
   durationMinutes     Int               @default(60)
   questionCount       Int               @default(40)
+  shuffleQuestions    Boolean           @default(false)
+  shuffleOptions      Boolean           @default(false)
   testSessionAttempts TestAttempt[]
+  supervisionLogs     TestSupervisionLog[]
   questionBank        QuestionBank?     @relation(fields: [questionBankId], references: [id], onDelete: SetNull)
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
@@ -653,11 +664,15 @@ model TestAttempt {
   status         TestAttemptStatus @default(NOT_STARTED)
   startedAt      DateTime?
   submittedAt    DateTime?
+  extraTimeMinutes Int               @default(0)
+  connectionStatus TestConnectionStatus @default(OFFLINE)
   score          Float?
+  scoreBySubject Json?
   correctCount   Int?
   testSession    TestSession       @relation(fields: [testSessionId], references: [id], onDelete: Restrict)
   registration   Registration      @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   answers        Answer[]
+  supervisionLogs TestSupervisionLog[]
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
@@ -666,6 +681,22 @@ model TestAttempt {
   @@index([registrationId])
   @@index([testSessionId])
   @@index([createdAt])
+}
+
+model TestSupervisionLog {
+  id             String       @id @default(cuid())
+  testSessionId  String
+  testAttemptId  String?
+  actorId        String?
+  action         String
+  detail         String
+  testSession    TestSession  @relation(fields: [testSessionId], references: [id], onDelete: Cascade)
+  testAttempt    TestAttempt? @relation(fields: [testAttemptId], references: [id], onDelete: SetNull)
+  actor          User?        @relation("TestSupervisionActor", fields: [actorId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+
+  @@index([testSessionId, createdAt])
+  @@index([testAttemptId, createdAt])
 }
 
 model Answer {
