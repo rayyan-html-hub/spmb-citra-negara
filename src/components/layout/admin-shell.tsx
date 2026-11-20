@@ -238,7 +238,13 @@ function AdminShellContent({ children }: { children: ReactNode }) {
   );
 }
 
-export function AdminPageHeader({ title }: { title: string }) {
+export function AdminPageHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description?: string;
+}) {
   if (title === "Dashboard") {
     return (
       <PageHeader
@@ -248,5 +254,5 @@ export function AdminPageHeader({ title }: { title: string }) {
     );
   }
 
-  return <PageHeader title={title} />;
+  return <PageHeader title={title} description={description} />;
 }
