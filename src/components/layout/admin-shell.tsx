@@ -20,6 +20,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { Footer } from "@/components/layout/footer";
+import { academicYear, year } from "@/config/site";
 import { PageHeader } from "@/components/ui/page-header";
 import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
@@ -199,7 +200,7 @@ export function AdminShell({ children }: { children: ReactNode }) {
                 {currentPage.label}
               </p>
               <p className="text-topbar-meta mt-1 text-muted">
-                Tahun Ajaran 2025/2026 · Gelombang 1
+                Tahun Ajaran {academicYear} · Gelombang 1
               </p>
             </div>
           </div>
@@ -231,7 +232,7 @@ export function AdminPageHeader({ title }: { title: string }) {
   if (title === "Dashboard") {
     return (
       <PageHeader
-        description="Pantau pendaftaran Gelombang 1 · Snapshot operasional 16 Januari 2025, 10.30 WIB"
+        description={`Pantau pendaftaran Gelombang 1 · Snapshot operasional 16 Januari ${year}, 10.30 WIB`}
         title="Penerimaan tertata, pelayanan prima."
       />
     );

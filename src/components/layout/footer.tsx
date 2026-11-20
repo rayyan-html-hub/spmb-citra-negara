@@ -1,18 +1,24 @@
 import { Camera, CirclePlay, Globe, GraduationCap } from "lucide-react";
 import Link from "next/link";
-import { site } from "@/config/site";
+import { site, year } from "@/config/site";
 
 function FooterBrand() {
   return (
     <div>
-      <Link className="inline-flex items-center gap-2 text-lg font-semibold text-white" href="/">
+      <Link
+        className="inline-flex items-center gap-2 text-lg font-semibold text-white"
+        href="/"
+      >
         <GraduationCap aria-hidden="true" size={24} />
         {site.name}
       </Link>
       <p className="mt-4 max-w-xs text-sm leading-6 text-white/85">
         {site.tagline}
       </p>
-      <div aria-label="Media sosial" className="mt-4 flex items-center gap-4 text-white">
+      <div
+        aria-label="Media sosial"
+        className="mt-4 flex items-center gap-4 text-white"
+      >
         <span aria-label="Instagram">
           <Camera aria-hidden="true" size={18} />
         </span>
@@ -99,7 +105,9 @@ export function Footer() {
           <details className="group border-b border-white/15 py-4">
             <summary className="text-footer-title cursor-pointer list-none font-bold">
               Tautan Cepat
-              <span className="float-right transition group-open:rotate-180">⌄</span>
+              <span className="float-right transition group-open:rotate-180">
+                ⌄
+              </span>
             </summary>
             <ul className="mt-4 space-y-3">
               {site.quickLinks.map((link) => (
@@ -114,7 +122,9 @@ export function Footer() {
           <details className="group border-b border-white/15 py-4">
             <summary className="text-footer-title cursor-pointer list-none font-bold">
               Portal
-              <span className="float-right transition group-open:rotate-180">⌄</span>
+              <span className="float-right transition group-open:rotate-180">
+                ⌄
+              </span>
             </summary>
             <ul className="mt-4 space-y-3">
               {site.portals.map((link) => (
@@ -129,7 +139,9 @@ export function Footer() {
           <details className="group border-b border-white/15 py-4">
             <summary className="text-footer-title cursor-pointer list-none font-bold">
               Kontak
-              <span className="float-right transition group-open:rotate-180">⌄</span>
+              <span className="float-right transition group-open:rotate-180">
+                ⌄
+              </span>
             </summary>
             <div className="mt-4">
               <FooterContact />
@@ -137,7 +149,7 @@ export function Footer() {
           </details>
         </div>
         <div className="text-footer-meta mt-8 flex flex-col gap-3 border-t border-white/15 pt-4 text-white/85 sm:flex-row sm:items-center sm:justify-between">
-          <p>© 2025 SMK Citra Negara</p>
+          <p>© {year} SMK Citra Negara</p>
           <p>Kebijakan Privasi · Syarat · Bantuan</p>
           <p className="inline-flex items-center gap-2">
             <span aria-hidden="true" className="size-2 rounded-full bg-light" />

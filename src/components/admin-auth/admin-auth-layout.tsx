@@ -8,6 +8,7 @@ import {
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { Footer } from "@/components/layout/footer";
+import { academicYear } from "@/config/site";
 
 export function AdminAuthLayout({ children }: { children: ReactNode }) {
   return (
@@ -20,7 +21,7 @@ export function AdminAuthLayout({ children }: { children: ReactNode }) {
               SMK Citra Negara
             </span>
             <span className="block text-[13px] leading-4 text-muted">
-              SPMB 2025/2026
+              SPMB {academicYear}
             </span>
           </span>
         </Link>
@@ -53,7 +54,7 @@ export function AdminAuthLayout({ children }: { children: ReactNode }) {
 
             <div className="mt-7 hidden rounded-2xl bg-dark p-7 lg:block">
               <p className="text-[12px] font-bold text-white/80">
-                TAHUN AJARAN 2025/2026
+                TAHUN AJARAN {academicYear}
               </p>
               <h2 className="mt-5 text-[28px] font-semibold leading-10">
                 Tumbuh bersama

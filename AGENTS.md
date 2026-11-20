@@ -11,6 +11,7 @@ Website SPMB (Sistem Penerimaan Murid Baru) SMK Citra Negara. Desain final: `doc
 STACK: Next.js (versi stabil terbaru, App Router, TypeScript strict), Node.js, Tailwind CSS + shadcn/ui, Lucide icons, font Inter, Prisma ORM + Neon Postgres (pakai DATABASE_URL pooled untuk runtime, DIRECT_URL untuk migrasi), Better Auth (Prisma adapter) untuk login, Zod + React Hook Form untuk validasi, Recharts untuk grafik, @react-pdf/renderer untuk PDF, exceljs untuk Excel/CSV, Vercel Blob (akses PRIVAT) untuk file, Midtrans Snap (sandbox) untuk pembayaran, Resend untuk email. Deploy: GitHub -> Vercel. Ikuti dokumentasi resmi versi terbaru tiap library; jangan menebak API dari ingatan.
 
 ROLE & ROUTE (3 login TERPISAH, tanpa role switcher):
+
 - Publik: / (beranda)
 - SISWA: /siswa/login, /siswa/daftar, /siswa/lupa-password, lalu /siswa/dashboard, /siswa/formulir, /siswa/berkas, /siswa/pembayaran, /siswa/hasil, /siswa/pengumuman, /siswa/notifikasi, /siswa/profil
 - ADMIN: /admin/login (+ OTP 6 digit via email, berlaku 5 menit, kirim ulang 60 dtk), lalu /admin/dashboard, /admin/pendaftaran, /admin/verifikasi-berkas, /admin/bank-soal, /admin/manajemen-tes, /admin/kelayakan-tka, /admin/seleksi, /admin/pengumuman, /admin/laporan, /admin/pembayaran
@@ -20,7 +21,8 @@ ROLE & ROUTE (3 login TERPISAH, tanpa role switcher):
 DESIGN SYSTEM (dari PDF): Inter, spacing kelipatan 8px, radius 16px, ikon Lucide, hijau-putih modern simple. Token: green #16A34A, side #15803D, dark #166534, light #DCFCE7, bg #F8FAFC, ink #0F172A, muted #64748B, line #E2E8F0. Sidebar hijau #15803D dengan menu aktif pill putih; topbar putih; card putih radius 16 dengan border tipis. Footer hijau tua dengan 4 kolom (brand, Tautan Cepat, Portal, Kontak) dipakai di SEMUA halaman. Badge status: Terverifikasi/Lunas/Lulus hijau, Perlu revisi/Menunggu kuning, Ditolak/Tidak lulus merah, Cadangan abu. Semua teks UI Bahasa Indonesia. Kontak footer adalah placeholder, simpan di satu file config (src/config/site.ts) supaya mudah diganti.
 
 DOMAIN INTI:
-- Nomor pendaftaran: CN-2025-00128. Invoice: INV/CN/2025/00128. Gelombang 1: 6 Jan - 30 Apr 2025.
+
+- Nomor pendaftaran: CN-2027-00128; invoice: INV/CN/2027/00128; refund: RF-2027-001; kuitansi: KWT-2027-00131; rekonsiliasi: REC-20270116; laporan eksekutif: EXE/CN/2027/G1/001; nomor VA contoh: 8808 2027 00128; nomor siswa contoh: SMP-2027-0128. Tahun Ajaran 2027/2028 (tahun lalu 2026/2027). Gelombang 1: 6 Jan - 30 Apr 2027. Tes TKA: 18 Jan 2027; publikasi hasil: 24 Jan 2027 pukul 10.00 WIB; daftar ulang paling lambat 31 Jan 2027. Data contoh lulus tahun 2027 dan lahir tahun 2012. Snapshot operasional: 16 Jan 2027; tren: 12-16 Jan 2027.
 - Jurusan: RPL (Rekayasa Perangkat Lunak) dan TKJ (Teknik Komputer dan Jaringan), kuota masing-masing 120.
 - Biaya: pendaftaran Rp250.000 + tes TKA Rp100.000 = Rp350.000, biaya layanan Rp0 (nominal harus bisa diatur admin).
 - Berkas: akta kelahiran, kartu keluarga, rapor semester 1-5, pas foto 3x4, surat keterangan lulus. Format PDF/JPG/PNG, maks 2 MB.
@@ -32,6 +34,7 @@ DOMAIN INTI:
 SINKRONISASI ANTAR ROLE (aturan arsitektur): semua portal membaca SATU database. Semua perubahan status HARUS lewat service layer di src/server/services/* di dalam transaksi Prisma, dan setiap perubahan menulis Notification (jika menyangkut siswa) + AuditLog. Contoh: siswa kirim berkas -> antrean Verifikasi Admin; admin tolak -> status "Perlu revisi" + catatan + notifikasi di siswa; pembayaran lunas -> laporan admin + Laporan Pembayaran kepala sekolah; admin publikasi hasil -> halaman hasil siswa + notifikasi + statistik kepala sekolah. Pemantauan live memakai polling 10 detik (bukan WebSocket).
 
 KEAMANAN (wajib):
+
 - Cek role di middleware DAN ulang di setiap Server Action/Route Handler. Kepala sekolah tidak punya endpoint tulis sama sekali.
 - File di Vercel Blob bersifat privat. Unduh/preview hanya lewat Route Handler yang mengecek login dan kepemilikan (siswa hanya miliknya; admin boleh semua; kepala sekolah tidak boleh membuka dokumen identitas). Validasi tipe (cek magic bytes) dan ukuran di server. Nama file di storage di-random; nama asli disimpan di DB.
 - NIK hanya terlihat oleh admin dan siswa pemilik. Password di-hash. Rate limit pada login/OTP/reset password. Validasi semua input dengan Zod di server.
@@ -40,7 +43,9 @@ KEAMANAN (wajib):
 
 STRUKTUR FOLDER: src/app (route group (public), (siswa), (admin), (kepsek)), src/components (ui, layout, feature), src/server (services, db, auth, storage, payments, pdf, reports), src/lib, src/config, prisma/ (schema.prisma, migrations, seed.ts), docs/.
 
-ATURAN KERJA: kerjakan per tahap; sebelum selesai jalankan npm run lint dan npm run build sampai lulus; commit kecil dengan Conventional Commits; jangan membuat fitur di luar tahap yang diminta; jika ada keputusan ambigu, pilih yang paling aman dan catat di docs/DECISIONS.md. Data seed memakai contoh dari desain (Rizky Aditya Pratama CN-2025-00128, Nadia Putri CN-2025-00129, Fajar Ramadhan CN-2025-00130, Dimas Saputra CN-2025-00132).
+ATURAN KERJA: kerjakan per tahap; sebelum selesai jalankan npm run lint dan npm run build sampai lulus; commit kecil dengan Conventional Commits; jangan membuat fitur di luar tahap yang diminta; jika ada keputusan ambigu, pilih yang paling aman dan catat di docs/DECISIONS.md. Data seed memakai contoh dari desain (Rizky Aditya Pratama CN-2027-00128, Nadia Putri CN-2027-00129, Fajar Ramadhan CN-2027-00130, Dimas Saputra CN-2027-00132).
+
+Desain PDF dan `docs/design-text.md` masih memakai tahun 2025/2026; saat membangun UI, ganti semua tahun mengikuti aturan penggantian di atas dan pakai konstanta di `src/config/site.ts`.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { year } from "@/config/site";
 import {
   evaluateOtpAttempt,
   hashOtp,
@@ -8,7 +9,7 @@ import {
 } from "@/server/auth/otp";
 
 const secret = "test-secret-for-otp";
-const now = new Date("2026-11-20T00:00:00.000Z");
+const now = new Date(Date.UTC(year, 10, 20));
 const validCode = "123456";
 
 function state(overrides: Partial<OtpAttemptState> = {}): OtpAttemptState {

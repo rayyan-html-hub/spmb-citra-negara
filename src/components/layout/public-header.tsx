@@ -3,6 +3,7 @@
 import { GraduationCap, Menu, X } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
+import { academicYear } from "@/config/site";
 
 const navigation = [
   { label: "Alur Pendaftaran", href: "/#alur-pendaftaran" },
@@ -18,7 +19,7 @@ export function PublicHeader() {
     <header className="relative z-10 bg-white">
       <div className="mx-auto flex h-14 max-w-[1200px] items-center justify-between px-4 sm:h-[84px] sm:px-6">
         <Link
-          aria-label="SMK Citra Negara, SPMB 2025/2026"
+          aria-label={`SMK Citra Negara, SPMB ${academicYear}`}
           className="inline-flex items-center gap-2"
           href="/"
           onClick={() => setMenuOpen(false)}
@@ -29,7 +30,7 @@ export function PublicHeader() {
               SMK Citra Negara
             </span>
             <span className="block text-[13px] leading-4 text-muted">
-              SPMB 2025/2026
+              SPMB {academicYear}
             </span>
           </span>
         </Link>

@@ -10,7 +10,7 @@ import {
 import Link from "next/link";
 import { Footer } from "@/components/layout/footer";
 import { PublicHeader } from "@/components/layout/public-header";
-import { site } from "@/config/site";
+import { site, year } from "@/config/site";
 
 const portals = [
   {
@@ -92,7 +92,7 @@ function WelcomeCard() {
       <div className="mt-4 rounded-xl bg-light px-4 py-3 text-dark">
         <p className="text-[13px] font-bold">GELOMBANG 1</p>
         <p className="mt-1 text-base font-semibold">
-          6 Januari – 30 April 2025
+          6 Januari – 30 April {year}
         </p>
       </div>
     </aside>

@@ -1,6 +1,14 @@
 import { hashPassword } from "better-auth/crypto";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { PrismaClient } from "../src/generated/prisma/client";
+import {
+  createInvoiceNumber,
+  createReceiptNumber,
+  createReconciliationNumber,
+  createRefundNumber,
+  createRegistrationNumber,
+  year,
+} from "../src/config/site";
 
 const REGISTRATION_COUNT = 480;
 const PAID_COUNT = 320;
@@ -137,10 +145,10 @@ const EXAMPLE_SCORES = new Map<number, [number, number, number, number]>([
 ]);
 
 const EXAMPLE_RANKS = new Map<string, number>([
-  ["CN-2025-00128", 12],
-  ["CN-2025-00129", 18],
-  ["CN-2025-00130", 151],
-  ["CN-2025-00132", 121],
+  [createRegistrationNumber(128), 12],
+  [createRegistrationNumber(129), 18],
+  [createRegistrationNumber(130), 151],
+  [createRegistrationNumber(132), 121],
 ]);
 
 function requireEnv(name: string) {
@@ -151,8 +159,8 @@ function requireEnv(name: string) {
   return value;
 }
 
-function wib(value: string) {
-  return new Date(`${value}+07:00`);
+function wib(value: string, dateYear = year) {
+  return new Date(`${dateYear}-${value}+07:00`);
 }
 
 function pad(value: number, width = 5) {
@@ -172,7 +180,7 @@ function registrationId(index: number) {
 }
 
 function registrationNumber(index: number) {
-  return `CN-2025-${pad(index)}`;
+  return createRegistrationNumber(index);
 }
 
 function registrationDate(index: number) {
@@ -185,7 +193,7 @@ function registrationDate(index: number) {
       const hour = 8 + ((index * 7) % 10);
       const minute = (index * 13) % 60;
       return wib(
-        `2025-01-${pad(dayNumber, 2)}T${pad(hour, 2)}:${pad(minute, 2)}:00`,
+        `01-${pad(dayNumber, 2)}T${pad(hour, 2)}:${pad(minute, 2)}:00`,
       );
     }
     firstIndex = lastIndex + 1;
@@ -199,7 +207,8 @@ function buildGenderByIndex() {
     { length: REGISTRATION_COUNT },
     (_, index) => index + 1,
   ).filter((index) => !result.has(index));
-  const maleCount = 288 - [...result.values()].filter((value) => value === "MALE").length;
+  const maleCount =
+    288 - [...result.values()].filter((value) => value === "MALE").length;
   let assignedMale = 0;
   for (const index of remaining) {
     const gender = assignedMale < maleCount ? "MALE" : "FEMALE";
@@ -230,7 +239,9 @@ function buildCityByIndex() {
   ];
 
   if (remaining.length !== assignments.length) {
-    throw new Error("The residence distribution does not total 480 applicants.");
+    throw new Error(
+      "The residence distribution does not total 480 applicants.",
+    );
   }
   remaining.forEach((index, offset) => result.set(index, assignments[offset]));
   return result;
@@ -253,7 +264,8 @@ function buildDocumentStatusByIndex() {
   const counts = {
     VALID: [...result.values()].filter((value) => value === "VALID").length,
     WAITING: [...result.values()].filter((value) => value === "WAITING").length,
-    REVISION: [...result.values()].filter((value) => value === "REVISION").length,
+    REVISION: [...result.values()].filter((value) => value === "REVISION")
+      .length,
   };
   for (let index = 1; index <= REGISTRATION_COUNT; index += 1) {
     if (result.has(index)) {
@@ -380,20 +392,20 @@ async function main() {
     where: { sequence: 1 },
     update: {
       name: "Gelombang 1",
-      startsAt: wib("2025-01-06T00:00:00"),
-      endsAt: wib("2025-04-30T23:59:59"),
+      startsAt: wib("01-06T00:00:00"),
+      endsAt: wib("04-30T23:59:59"),
       status: "CLOSED",
-      updatedAt: wib("2025-01-16T10:30:00"),
+      updatedAt: wib("01-16T10:30:00"),
     },
     create: {
-      id: "seed-wave-2025-1",
+      id: `seed-wave-${year}-1`,
       name: "Gelombang 1",
       sequence: 1,
-      startsAt: wib("2025-01-06T00:00:00"),
-      endsAt: wib("2025-04-30T23:59:59"),
+      startsAt: wib("01-06T00:00:00"),
+      endsAt: wib("04-30T23:59:59"),
       status: "CLOSED",
-      createdAt: wib("2025-01-06T00:00:00"),
-      updatedAt: wib("2025-01-16T10:30:00"),
+      createdAt: wib("01-06T00:00:00"),
+      updatedAt: wib("01-16T10:30:00"),
     },
   });
 
@@ -408,14 +420,14 @@ async function main() {
       update: {
         name: major.name,
         quota: 120,
-        updatedAt: wib("2025-01-16T10:30:00"),
+        updatedAt: wib("01-16T10:30:00"),
       },
       create: {
         id: `seed-major-${major.code.toLowerCase()}`,
         ...major,
         quota: 120,
-        createdAt: wib("2025-01-06T00:00:00"),
-        updatedAt: wib("2025-01-16T10:30:00"),
+        createdAt: wib("01-06T00:00:00"),
+        updatedAt: wib("01-16T10:30:00"),
       },
     });
     majorIds.set(major.code, savedMajor.id);
@@ -451,12 +463,12 @@ async function main() {
   for (const setting of settings) {
     await prisma.siteSetting.upsert({
       where: { key: setting.key },
-      update: { ...setting, updatedAt: wib("2025-01-16T10:30:00") },
+      update: { ...setting, updatedAt: wib("01-16T10:30:00") },
       create: {
         id: `seed-setting-${setting.key}`,
         ...setting,
-        createdAt: wib("2025-01-06T00:00:00"),
-        updatedAt: wib("2025-01-16T10:30:00"),
+        createdAt: wib("01-06T00:00:00"),
+        updatedAt: wib("01-16T10:30:00"),
       },
     });
   }
@@ -466,15 +478,15 @@ async function main() {
     update: {
       name: "Administrator",
       role: "ADMIN",
-      updatedAt: wib("2025-01-16T10:30:00"),
+      updatedAt: wib("01-16T10:30:00"),
     },
     create: {
       id: "seed-admin",
       name: "Administrator",
       email: adminEmail,
       role: "ADMIN",
-      createdAt: wib("2025-01-06T00:00:00"),
-      updatedAt: wib("2025-01-16T10:30:00"),
+      createdAt: wib("01-06T00:00:00"),
+      updatedAt: wib("01-16T10:30:00"),
     },
   });
 
@@ -485,7 +497,7 @@ async function main() {
       accountId: admin.id,
       providerId: "credential",
       userId: admin.id,
-      updatedAt: wib("2025-01-16T10:30:00"),
+      updatedAt: wib("01-16T10:30:00"),
     },
     create: {
       id: `seed-credential-${admin.id}`,
@@ -493,8 +505,8 @@ async function main() {
       providerId: "credential",
       userId: admin.id,
       password: passwordHash,
-      createdAt: wib("2025-01-06T00:00:00"),
-      updatedAt: wib("2025-01-16T10:30:00"),
+      createdAt: wib("01-06T00:00:00"),
+      updatedAt: wib("01-16T10:30:00"),
     },
   });
 
@@ -601,10 +613,10 @@ async function main() {
   const expectedDailyCounts = [60, 72, 84, 120, 144];
   for (const [dayOffset, expected] of expectedDailyCounts.entries()) {
     const day = 12 + dayOffset;
-    const startOfDay = wib(`2025-01-${pad(day, 2)}T00:00:00`);
-    const startOfNextDay = wib(`2025-01-${pad(day + 1, 2)}T00:00:00`);
+    const startOfDay = wib(`01-${pad(day, 2)}T00:00:00`);
+    const startOfNextDay = wib(`01-${pad(day + 1, 2)}T00:00:00`);
     assertCount(
-      `Pendaftar 2025-01-${pad(day, 2)}`,
+      `Pendaftar ${year}-01-${pad(day, 2)}`,
       candidates.filter(
         (candidate) =>
           candidate.registrationAt >= startOfDay &&
@@ -615,8 +627,8 @@ async function main() {
   }
 
   const timestamps = {
-    createdAt: wib("2025-01-06T00:00:00"),
-    updatedAt: wib("2025-01-16T10:30:00"),
+    createdAt: wib("01-06T00:00:00"),
+    updatedAt: wib("01-16T10:30:00"),
   };
   await prisma.user.createMany({
     data: candidates.map((candidate) => ({
@@ -639,7 +651,10 @@ async function main() {
         registrationNumber: candidate.registrationNumber,
         fullName: candidate.fullName,
         birthPlace: city,
-        birthDate: wib(`2009-01-${pad(1 + ((candidate.index * 11) % 28), 2)}T00:00:00`),
+        birthDate: wib(
+          `01-${pad(1 + ((candidate.index * 11) % 28), 2)}T00:00:00`,
+          year - 15,
+        ),
         gender: genders.get(candidate.index),
         phone: `08${String(100000000 + candidate.index).padStart(9, "0")}`,
         email: `siswa-${pad(candidate.index)}@example.invalid`,
@@ -659,7 +674,9 @@ async function main() {
       id: `seed-parent-${pad(candidate.index)}`,
       applicantId: candidate.applicantId,
       fatherName:
-        candidate.index === 128 ? "Budi Pratama" : `Bapak ${candidate.fullName}`,
+        candidate.index === 128
+          ? "Budi Pratama"
+          : `Bapak ${candidate.fullName}`,
       fatherPhone: `08${String(200000000 + candidate.index).padStart(9, "0")}`,
       fatherJob: "Wiraswasta",
       motherName:
@@ -687,8 +704,8 @@ async function main() {
         schoolName,
         schoolNpsn: `2020${String(SCHOOL_NAMES.indexOf(schoolName) + 1).padStart(4, "0")}`,
         schoolAddress: `${schoolName}, Jawa Barat`,
-        graduationYear: 2025,
-        studentNumber: `2025${String(candidate.index).padStart(6, "0")}`,
+        graduationYear: year,
+        studentNumber: `SMP-${year}-${pad(candidate.index, 4)}`,
         createdAt: candidate.registrationAt,
         updatedAt: candidate.registrationAt,
       };
@@ -723,7 +740,9 @@ async function main() {
   for (const candidate of candidates) {
     const statusGroup = documentStatuses.get(candidate.index);
     if (!statusGroup) {
-      throw new Error(`No document status configured for ${candidate.registrationNumber}.`);
+      throw new Error(
+        `No document status configured for ${candidate.registrationNumber}.`,
+      );
     }
     const perTypeIds = new Map<string, string>();
     for (const documentType of DOCUMENT_TYPES) {
@@ -753,7 +772,7 @@ async function main() {
         sizeBytes: 120_000 + ((candidate.index * 97) % 1_500_000),
         uploadedAt: candidate.registrationAt,
         createdAt: candidate.registrationAt,
-        updatedAt: wib("2025-01-16T10:20:00"),
+        updatedAt: wib("01-16T10:20:00"),
       });
 
       if (status !== "UNDER_REVIEW") {
@@ -768,13 +787,13 @@ async function main() {
               : "Dokumen sesuai.",
           reviewedAt: wib(
             candidate.index === 128 && documentType.key === "PAS_PHOTO"
-              ? "2025-01-16T10:20:00"
-              : "2025-01-15T09:40:00",
+              ? "01-16T10:20:00"
+              : "01-15T09:40:00",
           ),
           createdAt: wib(
             candidate.index === 128 && documentType.key === "PAS_PHOTO"
-              ? "2025-01-16T10:20:00"
-              : "2025-01-15T09:40:00",
+              ? "01-16T10:20:00"
+              : "01-15T09:40:00",
           ),
         });
       }
@@ -798,11 +817,13 @@ async function main() {
   const invoiceRows = candidates.map((candidate) => {
     const state = paymentStatuses.get(candidate.index);
     if (!state) {
-      throw new Error(`No payment status configured for ${candidate.registrationNumber}.`);
+      throw new Error(
+        `No payment status configured for ${candidate.registrationNumber}.`,
+      );
     }
     return {
       id: `seed-invoice-${pad(candidate.index)}`,
-      invoiceNumber: `INV/CN/2025/${pad(candidate.index)}`,
+      invoiceNumber: createInvoiceNumber(candidate.index),
       registrationId: candidate.registrationId,
       majorId: majorIds.get(candidate.majorCode)!,
       status: state === "PAID" ? ("PAID" as const) : ("UNPAID" as const),
@@ -811,10 +832,10 @@ async function main() {
       serviceFee: 0,
       totalAmount: IDR_TOTAL,
       issuedAt: candidate.registrationAt,
-      dueAt: wib("2025-01-16T23:59:00"),
-      paidAt: state === "PAID" ? wib("2025-01-13T10:15:00") : null,
+      dueAt: wib("01-16T23:59:00"),
+      paidAt: state === "PAID" ? wib("01-13T10:15:00") : null,
       createdAt: candidate.registrationAt,
-      updatedAt: wib("2025-01-16T10:30:00"),
+      updatedAt: wib("01-16T10:30:00"),
     };
   });
   await prisma.invoice.createMany({ data: invoiceRows, skipDuplicates: true });
@@ -828,7 +849,9 @@ async function main() {
   const paymentRows = candidates.map((candidate) => {
     const state = paymentStatuses.get(candidate.index);
     if (!state) {
-      throw new Error(`No payment status configured for ${candidate.registrationNumber}.`);
+      throw new Error(
+        `No payment status configured for ${candidate.registrationNumber}.`,
+      );
     }
     const isRizky = candidate.index === 128;
     const isNadia = candidate.index === 129;
@@ -841,7 +864,7 @@ async function main() {
           ? "QRIS"
           : paymentMethods[(candidate.index - 1) % paymentMethods.length];
     const isWaiting = state === "WAITING";
-    const paidAt = state === "PAID" ? wib("2025-01-13T10:15:00") : null;
+    const paidAt = state === "PAID" ? wib("01-13T10:15:00") : null;
 
     return {
       id: `seed-payment-${pad(candidate.index)}`,
@@ -851,23 +874,24 @@ async function main() {
       amount: IDR_TOTAL,
       provider: method === "VIRTUAL_ACCOUNT" ? "BNI VA" : "midtrans",
       providerOrderId: `seed-order-${pad(candidate.index)}`,
-      providerTransactionId: state === "PAID" ? `seed-transaction-${pad(candidate.index)}` : null,
+      providerTransactionId:
+        state === "PAID" ? `seed-transaction-${pad(candidate.index)}` : null,
       providerReference: isRizky
-        ? "BNI VA 8808 2025 00128"
+        ? `BNI VA 8808 ${year} 00128`
         : isNadia
-          ? "TRF-20250116-0129"
+          ? `TRF-${year}0116-0129`
           : isWaiting
-            ? `TRF-20250116-${pad(candidate.index, 4)}`
+            ? `TRF-${year}0116-${pad(candidate.index, 4)}`
             : state === "PAID"
-              ? `PAY-20250113-${pad(candidate.index, 4)}`
+              ? `PAY-${year}0113-${pad(candidate.index, 4)}`
               : null,
       paidAt,
-      expiresAt: state === "PAID" ? null : wib("2025-01-16T23:59:00"),
+      expiresAt: state === "PAID" ? null : wib("01-16T23:59:00"),
       failureMessage: isWaiting
         ? "Bukti transfer diunggah; menunggu verifikasi admin."
         : null,
       createdAt: candidate.registrationAt,
-      updatedAt: wib("2025-01-16T10:30:00"),
+      updatedAt: wib("01-16T10:30:00"),
     };
   });
   await prisma.payment.createMany({ data: paymentRows, skipDuplicates: true });
@@ -882,12 +906,12 @@ async function main() {
   await prisma.receipt.createMany({
     data: [
       {
-        id: "seed-receipt-2025-00131",
-        receiptNumber: "KWT-2025-00131",
+        id: `seed-receipt-${year}-00131`,
+        receiptNumber: createReceiptNumber(131),
         invoiceId: "seed-invoice-00131",
         amount: IDR_TOTAL,
-        issuedAt: wib("2025-01-13T10:15:00"),
-        createdAt: wib("2025-01-13T10:15:00"),
+        issuedAt: wib("01-13T10:15:00"),
+        createdAt: wib("01-13T10:15:00"),
       },
     ],
     skipDuplicates: true,
@@ -895,17 +919,17 @@ async function main() {
   await prisma.refund.createMany({
     data: [
       {
-        id: "seed-refund-2025-001",
+        id: `seed-refund-${year}-001`,
         invoiceId: `seed-invoice-${pad(refundPayment.index)}`,
         paymentId: `seed-payment-${pad(refundPayment.index)}`,
         status: "SUCCEEDED",
         amount: IDR_TOTAL,
         reason: "Pembayaran ganda",
-        providerId: "RF-2025-001",
-        requestedAt: wib("2025-01-16T09:00:00"),
-        processedAt: wib("2025-01-16T10:00:00"),
-        createdAt: wib("2025-01-16T09:00:00"),
-        updatedAt: wib("2025-01-16T10:00:00"),
+        providerId: createRefundNumber(1),
+        requestedAt: wib("01-16T09:00:00"),
+        processedAt: wib("01-16T10:00:00"),
+        createdAt: wib("01-16T09:00:00"),
+        updatedAt: wib("01-16T10:00:00"),
       },
     ],
     skipDuplicates: true,
@@ -925,8 +949,8 @@ async function main() {
         subject: subject.key,
         description: `Bank soal contoh ${subject.name}.`,
         status: bankType,
-        createdAt: wib("2025-01-06T00:00:00"),
-        updatedAt: wib("2025-01-16T10:30:00"),
+        createdAt: wib("01-06T00:00:00"),
+        updatedAt: wib("01-16T10:30:00"),
       });
       const questionCount = bankType === "PUBLISHED" ? 25 : 5;
       const publishedIds = publishedQuestionIdsBySubject.get(subject.key) ?? [];
@@ -941,8 +965,8 @@ async function main() {
           points: 10,
           order,
           isActive: bankType === "PUBLISHED",
-          createdAt: wib("2025-01-06T00:00:00"),
-          updatedAt: wib("2025-01-16T10:30:00"),
+          createdAt: wib("01-06T00:00:00"),
+          updatedAt: wib("01-16T10:30:00"),
         });
         if (bankType === "PUBLISHED") {
           publishedIds.push(questionId);
@@ -975,7 +999,10 @@ async function main() {
     data: questionBankRows,
     skipDuplicates: true,
   });
-  await prisma.question.createMany({ data: questionRows, skipDuplicates: true });
+  await prisma.question.createMany({
+    data: questionRows,
+    skipDuplicates: true,
+  });
   await prisma.questionOption.createMany({
     data: questionOptionRows,
     skipDuplicates: true,
@@ -987,17 +1014,19 @@ async function main() {
   const tkjRankOrder = candidates
     .filter((candidate) => candidate.majorCode === "TKJ")
     .slice(0, 140);
-  setApplicantRank(rplRankOrder, "CN-2025-00128", 12);
-  setApplicantRank(rplRankOrder, "CN-2025-00132", 121);
-  setApplicantRank(rplRankOrder, "CN-2025-00130", 151);
-  setApplicantRank(tkjRankOrder, "CN-2025-00129", 18);
-  setApplicantRank(tkjRankOrder, "CN-2025-00131", 21);
+  setApplicantRank(rplRankOrder, createRegistrationNumber(128), 12);
+  setApplicantRank(rplRankOrder, createRegistrationNumber(132), 121);
+  setApplicantRank(rplRankOrder, createRegistrationNumber(130), 151);
+  setApplicantRank(tkjRankOrder, createRegistrationNumber(129), 18);
+  setApplicantRank(tkjRankOrder, createRegistrationNumber(131), 21);
   if (
     rplRankOrder.length + tkjRankOrder.length !== TEST_PARTICIPANT_COUNT ||
     rplRankOrder.length !== 160 ||
     tkjRankOrder.length !== 140
   ) {
-    throw new Error("The test participant distribution must be 160 RPL and 140 TKJ.");
+    throw new Error(
+      "The test participant distribution must be 160 RPL and 140 TKJ.",
+    );
   }
 
   const scoreByRegistration = new Map<
@@ -1012,13 +1041,12 @@ async function main() {
       const rank = offset + 1;
       const exampleScores = EXAMPLE_SCORES.get(candidate.index);
       const target = roundToThree(rankScore(majorCode, rank));
-      const subjects: [number, number, number, number] =
-        exampleScores ?? [
-          roundToThree(target - 1),
-          roundToThree(target - 1),
-          roundToThree(target + 1),
-          roundToThree(target + 1),
-        ];
+      const subjects: [number, number, number, number] = exampleScores ?? [
+        roundToThree(target - 1),
+        roundToThree(target - 1),
+        roundToThree(target + 1),
+        roundToThree(target + 1),
+      ];
       const finalScore = roundToThree(
         subjects.reduce((total, score) => total + score, 0) / subjects.length,
       );
@@ -1029,17 +1057,21 @@ async function main() {
     });
   }
 
-  const rankedCandidates = [...rplRankOrder, ...tkjRankOrder].map((candidate) => {
-    const score = scoreByRegistration.get(candidate.registrationNumber);
-    if (!score) {
-      throw new Error(`Missing test score for ${candidate.registrationNumber}.`);
-    }
-    return {
-      ...candidate,
-      finalScore: score.finalScore,
-      mathematicsScore: score.subjects[1],
-    };
-  });
+  const rankedCandidates = [...rplRankOrder, ...tkjRankOrder].map(
+    (candidate) => {
+      const score = scoreByRegistration.get(candidate.registrationNumber);
+      if (!score) {
+        throw new Error(
+          `Missing test score for ${candidate.registrationNumber}.`,
+        );
+      }
+      return {
+        ...candidate,
+        finalScore: score.finalScore,
+        mathematicsScore: score.subjects[1],
+      };
+    },
+  );
   for (const majorCode of ["RPL", "TKJ"] as const) {
     const sorted = rankedCandidates
       .filter((candidate) => candidate.majorCode === majorCode)
@@ -1053,13 +1085,15 @@ async function main() {
       const expectedRank =
         majorCode === "RPL"
           ? EXAMPLE_RANKS.get(candidate.registrationNumber)
-          : candidate.registrationNumber === "CN-2025-00129"
+          : candidate.registrationNumber === createRegistrationNumber(129)
             ? 18
             : undefined;
       if (expectedRank !== undefined) {
-        const actualRank = sorted.findIndex(
-          (ranked) => ranked.registrationNumber === candidate.registrationNumber,
-        ) + 1;
+        const actualRank =
+          sorted.findIndex(
+            (ranked) =>
+              ranked.registrationNumber === candidate.registrationNumber,
+          ) + 1;
         if (actualRank !== expectedRank) {
           throw new Error(
             `Rank mismatch for ${candidate.registrationNumber}: expected ${expectedRank}, got ${actualRank}.`,
@@ -1072,16 +1106,18 @@ async function main() {
     });
   }
 
-  const labNames = ["Lab Komputer 2", "Lab Komputer 1", "Lab Komputer 3"] as const;
-  const testStarts = [
-    "2025-01-18T08:00:00",
-    "2025-01-18T10:30:00",
-    "2025-01-18T13:00:00",
-  ];
+  const labNames = [
+    "Lab Komputer 2",
+    "Lab Komputer 1",
+    "Lab Komputer 3",
+  ] as const;
+  const testStarts = ["01-18T08:00:00", "01-18T10:30:00", "01-18T13:00:00"];
   const sessionRows = Array.from({ length: 10 }, (_, offset) => {
     const subject = TEST_SUBJECTS[offset % TEST_SUBJECTS.length];
     const sessionNumber = offset + 1;
-    const startsAt = wib(testStarts[Math.floor((offset * testStarts.length) / 10)]);
+    const startsAt = wib(
+      testStarts[Math.floor((offset * testStarts.length) / 10)],
+    );
     const endsAt = new Date(startsAt.getTime() + 120 * 60 * 1000);
     return {
       id: `seed-test-session-${pad(sessionNumber, 2)}`,
@@ -1093,8 +1129,8 @@ async function main() {
       endsAt,
       durationMinutes: 120,
       questionCount: 40,
-      createdAt: wib("2025-01-06T00:00:00"),
-      updatedAt: wib("2025-01-18T15:00:00"),
+      createdAt: wib("01-06T00:00:00"),
+      updatedAt: wib("01-18T15:00:00"),
     };
   });
   await prisma.testSession.createMany({
@@ -1112,7 +1148,9 @@ async function main() {
     const session = sessionRows[sessionOffset];
     const score = scoreByRegistration.get(candidate.registrationNumber);
     if (!session || !score) {
-      throw new Error(`Could not create a test attempt for ${candidate.registrationNumber}.`);
+      throw new Error(
+        `Could not create a test attempt for ${candidate.registrationNumber}.`,
+      );
     }
     const startedAt = session.startsAt!;
     const submittedAt = new Date(startedAt.getTime() + 90 * 60 * 1000);
@@ -1165,19 +1203,19 @@ async function main() {
     });
   }
 
-  const publicationId = "seed-publication-2025-v1";
+  const publicationId = `seed-publication-${year}-v1`;
   await prisma.publication.createMany({
     data: [
       {
         id: publicationId,
         waveId: wave.id,
         status: "PUBLISHED",
-        scheduledAt: wib("2025-01-24T10:00:00"),
-        publishedAt: wib("2025-01-24T10:00:00"),
+        scheduledAt: wib("01-24T10:00:00"),
+        publishedAt: wib("01-24T10:00:00"),
         version: 1,
         authorId: admin.id,
-        createdAt: wib("2025-01-24T10:00:00"),
-        updatedAt: wib("2025-01-24T10:00:00"),
+        createdAt: wib("01-24T10:00:00"),
+        updatedAt: wib("01-24T10:00:00"),
       },
     ],
     skipDuplicates: true,
@@ -1195,12 +1233,8 @@ async function main() {
       );
     for (const [offset, candidate] of majorCandidates.entries()) {
       const rank = offset + 1;
-        const status: "FAIL" | "PASS" | "WAITLIST" =
-        candidate.finalScore < 70
-          ? "FAIL"
-          : rank <= 120
-            ? "PASS"
-            : "WAITLIST";
+      const status: "FAIL" | "PASS" | "WAITLIST" =
+        candidate.finalScore < 70 ? "FAIL" : rank <= 120 ? "PASS" : "WAITLIST";
       selectionResults.push({
         id: `seed-selection-${pad(candidate.index)}`,
         registrationId: candidate.registrationId,
@@ -1212,9 +1246,9 @@ async function main() {
         mathematicsScore: candidate.mathematicsScore,
         registeredAt: candidate.registrationAt,
         publicationId,
-        publishedAt: wib("2025-01-24T10:00:00"),
-        createdAt: wib("2025-01-24T10:00:00"),
-        updatedAt: wib("2025-01-24T10:00:00"),
+        publishedAt: wib("01-24T10:00:00"),
+        createdAt: wib("01-24T10:00:00"),
+        updatedAt: wib("01-24T10:00:00"),
       });
     }
   }
@@ -1227,34 +1261,38 @@ async function main() {
     {
       id: "seed-announcement-tka",
       title: "Persiapan tes TKA gelombang 1",
-      body: "Tes TKA dilaksanakan Sabtu, 18 Januari 2025 pukul 08.00-10.00 WIB. Peserta Lab Komputer 2 diminta hadir 30 menit sebelum tes dimulai. Bawa kartu tes, alat tulis, dan identitas diri.",
+      body: `Tes TKA dilaksanakan Senin, 18 Januari ${year} pukul 08.00-10.00 WIB. Peserta Lab Komputer 2 diminta hadir 30 menit sebelum tes dimulai. Bawa kartu tes, alat tulis, dan identitas diri.`,
       status: "PUBLISHED" as const,
-      publishAt: wib("2025-01-15T10:00:00"),
-      publishedAt: wib("2025-01-15T10:00:00"),
-      createdAt: wib("2025-01-15T10:00:00"),
-      updatedAt: wib("2025-01-15T10:00:00"),
+      publishAt: wib("01-15T10:00:00"),
+      publishedAt: wib("01-15T10:00:00"),
+      createdAt: wib("01-15T10:00:00"),
+      updatedAt: wib("01-15T10:00:00"),
     },
     {
       id: "seed-announcement-payment",
       title: "Panduan pembayaran pendaftaran",
       body: "Panduan pembayaran biaya pendaftaran dan tes TKA Gelombang 1.",
       status: "PUBLISHED" as const,
-      publishAt: wib("2025-01-13T09:00:00"),
-      publishedAt: wib("2025-01-13T09:00:00"),
-      createdAt: wib("2025-01-13T09:00:00"),
-      updatedAt: wib("2025-01-13T09:00:00"),
+      publishAt: wib("01-13T09:00:00"),
+      publishedAt: wib("01-13T09:00:00"),
+      createdAt: wib("01-13T09:00:00"),
+      updatedAt: wib("01-13T09:00:00"),
     },
     {
       id: "seed-announcement-reenrollment",
       title: "Pengingat daftar ulang",
-      body: "Informasi daftar ulang bagi calon siswa yang dinyatakan lulus.",
+      body: `Daftar ulang bagi calon siswa yang dinyatakan lulus paling lambat 31 Januari ${year}.`,
       status: "SCHEDULED" as const,
-      publishAt: wib("2025-01-25T08:00:00"),
+      publishAt: wib("01-25T08:00:00"),
       publishedAt: null,
-      createdAt: wib("2025-01-16T10:00:00"),
-      updatedAt: wib("2025-01-16T10:00:00"),
+      createdAt: wib("01-16T10:00:00"),
+      updatedAt: wib("01-16T10:00:00"),
     },
-  ].map((announcement) => ({ ...announcement, waveId: wave.id, authorId: admin.id }));
+  ].map((announcement) => ({
+    ...announcement,
+    waveId: wave.id,
+    authorId: admin.id,
+  }));
   await prisma.announcement.createMany({
     data: announcements,
     skipDuplicates: true,
@@ -1264,8 +1302,7 @@ async function main() {
   const publishedAnnouncements = announcements.slice(0, 2);
   for (const announcement of publishedAnnouncements) {
     for (const candidate of candidates) {
-      const readLimit =
-        announcement.id === "seed-announcement-tka" ? 420 : 456;
+      const readLimit = announcement.id === "seed-announcement-tka" ? 420 : 456;
       const wasRead = candidate.index <= readLimit;
       notificationRows.push({
         id: `seed-notification-${announcement.id}-${pad(candidate.index)}`,
@@ -1293,14 +1330,15 @@ async function main() {
     userId: userId(128),
     type: "DOCUMENT" as const,
     title: "Pas foto perlu revisi",
-    message: "Latar foto belum sesuai. Unggah ulang pas foto 3x4 dengan latar merah.",
+    message:
+      "Latar foto belum sesuai. Unggah ulang pas foto 3x4 dengan latar merah.",
     href: "/siswa/berkas",
     readAt: null,
     metadata: {
-      registrationNumber: "CN-2025-00128",
+      registrationNumber: createRegistrationNumber(128),
       documentType: "PAS_PHOTO",
     },
-    createdAt: wib("2025-01-16T10:20:00"),
+    createdAt: wib("01-16T10:20:00"),
   });
   await prisma.notification.createMany({
     data: notificationRows,
@@ -1323,9 +1361,9 @@ async function main() {
         id: "seed-audit-document-batch",
         action: "CREATE",
         entity: "Document",
-        entityId: "seed-document-upload-batch-20250116-1028",
+        entityId: `seed-document-upload-batch-${year}0116-1028`,
         changes: { activity: "Siswa mengirim 12 berkas baru", count: 12 },
-        createdAt: wib("2025-01-16T10:28:00"),
+        createdAt: wib("01-16T10:28:00"),
       },
       {
         id: "seed-audit-rizky-photo-rejected",
@@ -1334,11 +1372,11 @@ async function main() {
         entity: "Document",
         entityId: rizkyDocumentId,
         changes: {
-          registrationNumber: "CN-2025-00128",
+          registrationNumber: createRegistrationNumber(128),
           status: "NEEDS_REVISION",
           note: "Latar foto belum sesuai.",
         },
-        createdAt: wib("2025-01-16T10:20:00"),
+        createdAt: wib("01-16T10:20:00"),
       },
       {
         id: "seed-audit-payment-verified",
@@ -1347,7 +1385,7 @@ async function main() {
         entity: "Payment",
         entityId: `seed-payment-${pad(firstPaidCandidate.index)}`,
         changes: { status: "PAID", amount: IDR_TOTAL },
-        createdAt: wib("2025-01-16T10:15:00"),
+        createdAt: wib("01-16T10:15:00"),
       },
       {
         id: "seed-audit-announcement-sent",
@@ -1356,21 +1394,21 @@ async function main() {
         entity: "Announcement",
         entityId: tkaAnnouncement.id,
         changes: { title: tkaAnnouncement.title, sent: 480 },
-        createdAt: wib("2025-01-16T10:00:00"),
+        createdAt: wib("01-16T10:00:00"),
       },
       {
         id: "seed-audit-reconciliation-difference",
         actorId: admin.id,
         action: "VERIFY",
         entity: "BankReconciliation",
-        entityId: "REC-20250116",
+        entityId: createReconciliationNumber(1, 16),
         changes: {
           matchedTransactions: 319,
           discrepancyCount: 1,
           discrepancyAmount: IDR_TOTAL,
           status: "REVIEW",
         },
-        createdAt: wib("2025-01-16T10:30:00"),
+        createdAt: wib("01-16T10:30:00"),
       },
     ],
     skipDuplicates: true,
@@ -1378,10 +1416,16 @@ async function main() {
 
   const seededCounts = await Promise.all([
     prisma.user.count({ where: { id: { startsWith: "seed-student-" } } }),
-    prisma.applicant.count({ where: { id: { startsWith: "seed-applicant-" } } }),
+    prisma.applicant.count({
+      where: { id: { startsWith: "seed-applicant-" } },
+    }),
     prisma.parentData.count({ where: { id: { startsWith: "seed-parent-" } } }),
-    prisma.schoolOrigin.count({ where: { id: { startsWith: "seed-school-" } } }),
-    prisma.registration.count({ where: { id: { startsWith: "seed-registration-" } } }),
+    prisma.schoolOrigin.count({
+      where: { id: { startsWith: "seed-school-" } },
+    }),
+    prisma.registration.count({
+      where: { id: { startsWith: "seed-registration-" } },
+    }),
     prisma.document.count({ where: { id: { startsWith: "seed-document-" } } }),
     prisma.documentReview.count({
       where: { id: { startsWith: "seed-document-review-" } },
@@ -1401,7 +1445,9 @@ async function main() {
     prisma.testAttempt.count({
       where: { id: { startsWith: "seed-test-attempt-" } },
     }),
-    prisma.answer.count({ where: { id: { startsWith: "seed-test-attempt-" } } }),
+    prisma.answer.count({
+      where: { id: { startsWith: "seed-test-attempt-" } },
+    }),
     prisma.selectionResult.count({
       where: { id: { startsWith: "seed-selection-" } },
     }),
@@ -1413,8 +1459,8 @@ async function main() {
       where: { id: { startsWith: "seed-notification-" } },
     }),
     prisma.auditLog.count({ where: { id: { startsWith: "seed-audit-" } } }),
-    prisma.receipt.count({ where: { id: "seed-receipt-2025-00131" } }),
-    prisma.refund.count({ where: { id: "seed-refund-2025-001" } }),
+    prisma.receipt.count({ where: { id: `seed-receipt-${year}-00131` } }),
+    prisma.refund.count({ where: { id: `seed-refund-${year}-001` } }),
   ]);
   const expectedSeededCounts = [
     REGISTRATION_COUNT,
@@ -1493,23 +1539,34 @@ async function main() {
   assertCount("Dokumen menunggu", waitingDocumentCount, 480);
   assertCount("Dokumen perlu revisi", revisionDocumentCount, 24);
 
-  const [paidInvoiceCount, pendingPaymentCount, paidPaymentCount, evidenceCount] =
-    await Promise.all([
-      prisma.invoice.count({
-        where: { id: { startsWith: "seed-invoice-" }, status: "PAID" },
-      }),
-      prisma.payment.count({
-        where: { id: { startsWith: "seed-payment-" }, failureMessage: { not: null } },
-      }),
-      prisma.payment.count({
-        where: { id: { startsWith: "seed-payment-" }, status: "PAID" },
-      }),
-      prisma.payment.count({
-        where: { id: { startsWith: "seed-payment-" }, status: "PENDING" },
-      }),
-    ]);
+  const [
+    paidInvoiceCount,
+    pendingPaymentCount,
+    paidPaymentCount,
+    evidenceCount,
+  ] = await Promise.all([
+    prisma.invoice.count({
+      where: { id: { startsWith: "seed-invoice-" }, status: "PAID" },
+    }),
+    prisma.payment.count({
+      where: {
+        id: { startsWith: "seed-payment-" },
+        failureMessage: { not: null },
+      },
+    }),
+    prisma.payment.count({
+      where: { id: { startsWith: "seed-payment-" }, status: "PAID" },
+    }),
+    prisma.payment.count({
+      where: { id: { startsWith: "seed-payment-" }, status: "PENDING" },
+    }),
+  ]);
   assertCount("Invoice lunas", paidInvoiceCount, PAID_COUNT);
-  assertCount("Bukti transfer menunggu", pendingPaymentCount, PENDING_PAYMENT_COUNT);
+  assertCount(
+    "Bukti transfer menunggu",
+    pendingPaymentCount,
+    PENDING_PAYMENT_COUNT,
+  );
   assertCount("Pembayaran lunas", paidPaymentCount, PAID_COUNT);
   assertCount(
     "Pembayaran pending termasuk belum dibayar",
@@ -1523,27 +1580,31 @@ async function main() {
   const draftBankIds = TEST_SUBJECTS.map(
     (subject) => `seed-question-bank-${subject.code.toLowerCase()}-draft`,
   );
-  const [publishedQuestionCount, draftQuestionCount, publishedReadCount, paymentReadCount] =
-    await Promise.all([
-      prisma.question.count({
-        where: { questionBankId: { in: publishedBankIds } },
-      }),
-      prisma.question.count({
-        where: { questionBankId: { in: draftBankIds } },
-      }),
-      prisma.notification.count({
-        where: {
-          id: { startsWith: "seed-notification-seed-announcement-tka-" },
-          readAt: { not: null },
-        },
-      }),
-      prisma.notification.count({
-        where: {
-          id: { startsWith: "seed-notification-seed-announcement-payment-" },
-          readAt: { not: null },
-        },
-      }),
-    ]);
+  const [
+    publishedQuestionCount,
+    draftQuestionCount,
+    publishedReadCount,
+    paymentReadCount,
+  ] = await Promise.all([
+    prisma.question.count({
+      where: { questionBankId: { in: publishedBankIds } },
+    }),
+    prisma.question.count({
+      where: { questionBankId: { in: draftBankIds } },
+    }),
+    prisma.notification.count({
+      where: {
+        id: { startsWith: "seed-notification-seed-announcement-tka-" },
+        readAt: { not: null },
+      },
+    }),
+    prisma.notification.count({
+      where: {
+        id: { startsWith: "seed-notification-seed-announcement-payment-" },
+        readAt: { not: null },
+      },
+    }),
+  ]);
   assertCount("Soal sudah ditinjau", publishedQuestionCount, 100);
   assertCount("Soal belum ditinjau", draftQuestionCount, 20);
   assertCount("Pengumuman TKA dibaca", publishedReadCount, 420);
@@ -1569,16 +1630,20 @@ async function main() {
   assertCount("Hasil cadangan", waitlistResultCount, 30);
   assertCount("Hasil tidak lulus", failedResultCount, 30);
   const scoreBands = {
-    below70: testScores.filter((attempt) => attempt.score !== null && attempt.score < 70)
-      .length,
+    below70: testScores.filter(
+      (attempt) => attempt.score !== null && attempt.score < 70,
+    ).length,
     from70To79: testScores.filter(
-      (attempt) => attempt.score !== null && attempt.score >= 70 && attempt.score < 80,
+      (attempt) =>
+        attempt.score !== null && attempt.score >= 70 && attempt.score < 80,
     ).length,
     from80To899: testScores.filter(
-      (attempt) => attempt.score !== null && attempt.score >= 80 && attempt.score < 90,
+      (attempt) =>
+        attempt.score !== null && attempt.score >= 80 && attempt.score < 90,
     ).length,
-    above90: testScores.filter((attempt) => attempt.score !== null && attempt.score > 90)
-      .length,
+    above90: testScores.filter(
+      (attempt) => attempt.score !== null && attempt.score > 90,
+    ).length,
   };
   assertCount("Nilai di bawah 70", scoreBands.below70, 30);
   assertCount("Nilai 70-79,9", scoreBands.from70To79, 120);
@@ -1586,7 +1651,9 @@ async function main() {
   assertCount("Nilai di atas 90", scoreBands.above90, 28);
   assertCount(
     "Peserta memenuhi ambang",
-    testScores.filter((attempt) => attempt.score !== null && attempt.score >= 70).length,
+    testScores.filter(
+      (attempt) => attempt.score !== null && attempt.score >= 70,
+    ).length,
     270,
   );
 
@@ -1622,12 +1689,16 @@ async function main() {
       result.status !== expected.status ||
       result.finalScore !== expected.score
     ) {
-      throw new Error(`The demo selection result is incorrect for ${result.registrationId}.`);
+      throw new Error(
+        `The demo selection result is incorrect for ${result.registrationId}.`,
+      );
     }
     expectedExamples.delete(result.registrationId);
   }
   if (expectedExamples.size !== 0) {
-    throw new Error("One or more required example selection results are missing.");
+    throw new Error(
+      "One or more required example selection results are missing.",
+    );
   }
 
   console.info("Database seed completed.");
