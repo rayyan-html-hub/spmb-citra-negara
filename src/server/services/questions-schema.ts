@@ -1,5 +1,8 @@
 import { z } from "zod";
-import type { TestSubject } from "@/generated/prisma/client";
+import type {
+  QuestionBankStatus,
+  TestSubject,
+} from "@/generated/prisma/client";
 
 export const QUESTION_SUBJECTS = [
   "PENALARAN_MATEMATIKA",
@@ -22,9 +25,17 @@ export const QUESTION_SUBJECT_CODES: Record<TestSubject, string> = {
   PENGETAHUAN_UMUM: "PUM",
 };
 
+export const questionIdSchema = z.union([
+  z.string().cuid(),
+  z.string().regex(
+    /^seed-question-(?:mtk|bin|big|pum)-(?:published|draft)-\d{3}$/,
+    "ID soal seed tidak valid.",
+  ),
+]);
+
 export const questionInputSchema = z
   .object({
-    id: z.string().cuid().optional(),
+    id: questionIdSchema.optional(),
     subject: z.enum(QUESTION_SUBJECTS),
     difficulty: z.enum(["EASY", "MEDIUM", "HARD"]),
     points: z.number().finite().positive().max(1000),
@@ -67,7 +78,7 @@ export const questionInputSchema = z
 
 export type QuestionInput = z.infer<typeof questionInputSchema>;
 export type QuestionDifficulty = "EASY" | "MEDIUM" | "HARD";
-export type QuestionStatus = "PUBLISHED" | "DRAFT" | "ARCHIVED";
+export type QuestionStatus = QuestionBankStatus;
 
 export const IMPORT_COLUMN_NAMES = [
   "mata_uji",

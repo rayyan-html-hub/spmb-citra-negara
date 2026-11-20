@@ -386,9 +386,13 @@ export async function deleteQuestion(id: string, actorId: string) {
     });
     if (!question) throw new Error("Soal tidak ditemukan.");
     const used = question.answers.length > 0 || question.questionBank.testSessions.length > 0;
-    if (used) throw new Error("Soal sudah dipakai sesi tes dan tidak dapat dihapus. Arsipkan soal.");
-    if (question.status === "PUBLISHED") {
-      throw new Error("Soal aktif tidak dapat dihapus. Arsipkan soal terlebih dahulu.");
+    if (used) {
+      throw new Error(
+        "Soal sudah dipakai sesi tes dan tidak dapat dihapus. Arsipkan soal.",
+      );
+    }
+    if (question.status !== "DRAFT") {
+      throw new Error("Hanya soal berstatus Draf yang bisa dihapus.");
     }
 
     await transaction.auditLog.create({

@@ -15,12 +15,14 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import {
+  useEffect,
   useReducer,
   useRef,
   useState,
   useTransition,
   type ChangeEvent,
 } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -125,12 +127,15 @@ function downloadBase64File(fileName: string, contentType: string, base64: strin
 export function BankSoalManager({
   initialList,
   initialQuestion,
+  initialQuestionNotFound,
   initialSummary,
 }: {
   initialList: ListData;
   initialQuestion: QuestionEditorDetail | null;
+  initialQuestionNotFound: boolean;
   initialSummary: Summary;
 }) {
+  const router = useRouter();
   const [list, setList] = useState(initialList);
   const [summary, setSummary] = useState(initialSummary);
   const initialEditor = initialQuestion
@@ -153,7 +158,10 @@ export function BankSoalManager({
   const [confirmation, setConfirmation] = useState<"archive" | "delete" | null>(null);
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [toast, setToast] = useState<{ title: string; message?: string; error?: boolean } | null>(null);
-  const [loadError, setLoadError] = useState("");
+  const [listError, setListError] = useState("");
+  const [editorError, setEditorError] = useState(
+    initialQuestionNotFound ? "Soal tidak ditemukan" : "",
+  );
   const [isLoading, startLoading] = useTransition();
   const [isSaving, startSaving] = useTransition();
   const [isBusy, setIsBusy] = useState(false);
@@ -164,6 +172,13 @@ export function BankSoalManager({
   const imageInput = useRef<HTMLInputElement>(null);
   const promptInput = useRef<HTMLTextAreaElement>(null);
   const editorHasChanges = questionEditorHasChanges(editor, savedEditor);
+
+  useEffect(() => {
+    if (!initialQuestionNotFound) return;
+    const url = new URL(window.location.href);
+    url.searchParams.delete("edit");
+    router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
+  }, [initialQuestionNotFound, router]);
 
   function updateEditor<K extends keyof QuestionEditorState>(
     key: K,
@@ -180,7 +195,7 @@ export function BankSoalManager({
   }
 
   async function refresh(nextPage = 1) {
-    setLoadError("");
+    setListError("");
     startLoading(async () => {
       try {
         const result = await listQuestions({
@@ -194,9 +209,16 @@ export function BankSoalManager({
         setList(result.list);
         setSummary(result.summary);
       } catch (error) {
-        setLoadError(error instanceof Error ? error.message : "Daftar soal gagal dimuat.");
+        setListError(error instanceof Error ? error.message : "Daftar soal gagal dimuat.");
       }
     });
+  }
+
+  function updateEditQuery(id: string | null) {
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set("edit", id);
+    else url.searchParams.delete("edit");
+    router.replace(`${url.pathname}${url.search}${url.hash}`, { scroll: false });
   }
 
   function scrollToEditor() {
@@ -209,7 +231,7 @@ export function BankSoalManager({
   }
 
   async function loadQuestion(id: string) {
-    setLoadError("");
+    setEditorError("");
     const requestId = ++selectionRequestRef.current;
     setIsLoadingQuestion(true);
     try {
@@ -220,13 +242,20 @@ export function BankSoalManager({
       const nextEditor = questionEditorStateFromDetail(question);
       dispatchEditor({ type: "load", question });
       setSavedEditor(nextEditor);
+      updateEditQuery(question.id);
     } catch (error) {
       if (requestId === selectionRequestRef.current) {
-        setLoadError(
+        const message =
           error instanceof Error
             ? error.message
-            : "Detail soal gagal dimuat.",
-        );
+            : "Detail soal gagal dimuat.";
+        if (message === "Soal tidak ditemukan.") {
+          const empty = emptyQuestionEditor();
+          dispatchEditor({ type: "reset", state: empty });
+          setSavedEditor(empty);
+          updateEditQuery(null);
+        }
+        setEditorError(message);
       }
     } finally {
       if (requestId === selectionRequestRef.current) {
@@ -257,6 +286,8 @@ export function BankSoalManager({
     const nextEditor = emptyQuestionEditor();
     dispatchEditor({ type: "reset", state: nextEditor });
     setSavedEditor(nextEditor);
+    setEditorError("");
+    updateEditQuery(null);
   }
 
   function requestNewQuestion() {
@@ -351,14 +382,17 @@ export function BankSoalManager({
     setConfirmation(null);
     try {
       if (currentAction === "archive") {
-        const result = await setQuestionStatus(editor.id, "ARCHIVED");
+        const result = await setQuestionStatus({
+          id: editor.id,
+          status: "ARCHIVED",
+        });
         if (!result.success) throw new Error(result.error);
         const archivedEditor = { ...editor, status: "ARCHIVED" as const };
         dispatchEditor({ type: "reset", state: archivedEditor });
         setSavedEditor(archivedEditor);
         setToast({ title: "Soal berhasil diarsipkan" });
       } else {
-        const result = await deleteQuestion(editor.id);
+        const result = await deleteQuestion({ id: editor.id });
         if (!result.success) throw new Error(result.error);
         resetEditor();
         setToast({ title: "Soal berhasil dihapus" });
@@ -367,6 +401,31 @@ export function BankSoalManager({
     } catch (error) {
       setToast({
         title: currentAction === "archive" ? "Arsip gagal" : "Hapus soal gagal",
+        message: error instanceof Error ? error.message : "Terjadi kesalahan.",
+        error: true,
+      });
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
+  async function reactivateQuestion() {
+    if (!editor.id || isBusy) return;
+    setIsBusy(true);
+    try {
+      const result = await setQuestionStatus({
+        id: editor.id,
+        status: "PUBLISHED",
+      });
+      if (!result.success) throw new Error(result.error);
+      const activeEditor = { ...editor, status: "PUBLISHED" as const };
+      dispatchEditor({ type: "reset", state: activeEditor });
+      setSavedEditor(activeEditor);
+      setToast({ title: "Soal berhasil diaktifkan kembali" });
+      await refresh(list.page);
+    } catch (error) {
+      setToast({
+        title: "Aktifkan kembali gagal",
         message: error instanceof Error ? error.message : "Terjadi kesalahan.",
         error: true,
       });
@@ -443,13 +502,13 @@ export function BankSoalManager({
           {toast.message}
         </Toast>
       )}
-      {loadError && (
+      {listError && (
         <Toast
           title="Daftar soal tidak dapat dimuat"
           variant="error"
-          onDismiss={() => setLoadError("")}
+          onDismiss={() => setListError("")}
         >
-          {loadError}
+          {listError}
         </Toast>
       )}
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-start">
@@ -627,8 +686,18 @@ export function BankSoalManager({
           <h2 className="text-xl font-semibold text-ink">
             Editor soal{editor.code ? ` · ${editor.code}` : " · Soal baru"}
           </h2>
+          {editor.status && (
+            <span className="rounded-full bg-bg px-3 py-1 text-xs text-muted">
+              {statusLabels[editor.status]}
+            </span>
+          )}
           <Button onClick={() => { setPreviewOpen(true); setShowKey(false); }} variant="secondary">Pratinjau</Button>
         </div>
+        {editorError && (
+          <p className="mb-4 text-sm text-red-700" role="alert">
+            {editorError}
+          </p>
+        )}
         {isLoadingQuestion && (
           <p className="mb-4 text-sm text-muted" role="status">
             Memuat data soal...
@@ -739,6 +808,11 @@ export function BankSoalManager({
           {editor.id && editor.status !== "ARCHIVED" && (
             <Button disabled={isBusy} onClick={() => setConfirmation("archive")} variant="secondary">Arsipkan / nonaktifkan</Button>
           )}
+          {editor.id && editor.status === "ARCHIVED" && (
+            <Button disabled={isBusy} onClick={() => void reactivateQuestion()}>
+              Aktifkan kembali
+            </Button>
+          )}
           {editor.id && editor.status === "DRAFT" && (
             <Button disabled={isBusy} onClick={() => setConfirmation("delete")} variant="danger">Hapus draf</Button>
           )}
@@ -819,12 +893,16 @@ export function BankSoalManager({
       <Modal
         open={confirmation !== null}
         onOpenChange={(open) => { if (!open) setConfirmation(null); }}
-        title={confirmation === "archive" ? "Arsipkan soal?" : "Hapus soal draf?"}
+        title={
+          confirmation === "archive"
+            ? "Arsipkan soal?"
+            : `Hapus soal ${editor.code ?? ""}?`
+        }
       >
         <p className="text-sm text-muted">
           {confirmation === "archive"
             ? "Soal akan dinonaktifkan dan tidak tersedia untuk tes berikutnya. Soal yang telah dipakai tes tetap disimpan."
-            : "Soal draf akan dihapus permanen. Soal yang sudah digunakan sesi tes tidak dapat dihapus."}
+            : "Tindakan ini tidak bisa dibatalkan."}
         </p>
         <div className="mt-5 flex justify-end gap-3">
           <Button onClick={() => setConfirmation(null)} variant="secondary">Batal</Button>

@@ -2,9 +2,14 @@ import { describe, expect, it } from "vitest";
 import {
   nextQuestionCode,
   parseQuestionImportRows,
+  questionIdSchema,
   questionInputSchema,
   validateQuestionImage,
 } from "@/server/services/questions-schema";
+import {
+  questionDeletionSchema,
+  questionStatusChangeSchema,
+} from "@/server/services/question-actions-schema";
 
 const validInput = {
   subject: "PENALARAN_MATEMATIKA",
@@ -23,6 +28,20 @@ const validInput = {
 };
 
 describe("question validation", () => {
+  it("accepts seed IDs and validates status and deletion payloads", () => {
+    const id = "seed-question-mtk-draft-026";
+    expect(questionIdSchema.safeParse(id).success).toBe(true);
+    expect(questionIdSchema.safeParse("not-a-question-id").success).toBe(false);
+    expect(questionDeletionSchema.safeParse({ id }).success).toBe(true);
+    expect(
+      questionStatusChangeSchema.safeParse({ id, status: "ARCHIVED" }).success,
+    ).toBe(true);
+    expect(
+      questionStatusChangeSchema.safeParse({ id, status: "ACTIVE" }).success,
+    ).toBe(false);
+    expect(questionStatusChangeSchema.safeParse(id).success).toBe(false);
+  });
+
   it("requires exactly one answer key and four filled options", () => {
     expect(questionInputSchema.safeParse(validInput).success).toBe(true);
     expect(

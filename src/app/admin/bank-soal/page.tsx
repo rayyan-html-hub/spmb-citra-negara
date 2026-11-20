@@ -8,17 +8,27 @@ import {
   getAdminQuestions,
   getQuestionSummary,
 } from "@/server/services/questions";
+import { questionIdSchema } from "@/server/services/questions-schema";
 
-export default async function AdminBankSoalPage() {
+type AdminBankSoalPageProps = {
+  searchParams: Promise<{ edit?: string | string[] }>;
+};
+
+export default function AdminBankSoalPage({
+  searchParams,
+}: AdminBankSoalPageProps) {
   return (
     <Suspense fallback={<BankSoalLoading />}>
-      <AdminBankSoalContent />
+      <AdminBankSoalContent searchParams={searchParams} />
     </Suspense>
   );
 }
 
-async function AdminBankSoalContent() {
+async function AdminBankSoalContent({
+  searchParams,
+}: AdminBankSoalPageProps) {
   await requireRole("ADMIN");
+  const params = await searchParams;
   const [list, summary] = await Promise.all([
     getAdminQuestions({
       search: "",
@@ -29,20 +39,34 @@ async function AdminBankSoalContent() {
     }),
     getQuestionSummary(),
   ]);
-  const selected =
-    list.rows.find((row) => row.code === "MTK-001") ?? list.rows[0];
-  const detail = selected
-    ? await getAdminQuestionDetail(selected.id)
-    : null;
-  const initialQuestion = detail
-    ? {
-        ...detail,
-        imageDataBase64: detail.imageData
-          ? Buffer.from(detail.imageData).toString("base64")
-          : null,
-        imageData: undefined,
-      }
-    : null;
+  const hasEditQuery = Object.prototype.hasOwnProperty.call(params, "edit");
+  let detail = null;
+  let initialQuestionNotFound = false;
+
+  if (hasEditQuery) {
+    const editId = params.edit;
+    const parsedId =
+      typeof editId === "string" ? questionIdSchema.safeParse(editId) : null;
+    detail = parsedId?.success
+      ? await getAdminQuestionDetail(parsedId.data)
+      : null;
+    initialQuestionNotFound = detail === null;
+  } else {
+    const selected =
+      list.rows.find((row) => row.code === "MTK-001") ?? list.rows[0];
+    detail = selected ? await getAdminQuestionDetail(selected.id) : null;
+  }
+
+  let initialQuestion = null;
+  if (detail) {
+    const { imageData, ...question } = detail;
+    initialQuestion = {
+      ...question,
+      imageDataBase64: imageData
+        ? Buffer.from(imageData).toString("base64")
+        : null,
+    };
+  }
 
   return (
     <>
@@ -53,6 +77,7 @@ async function AdminBankSoalContent() {
       <BankSoalManager
         initialList={list}
         initialQuestion={initialQuestion}
+        initialQuestionNotFound={initialQuestionNotFound}
         initialSummary={summary}
       />
     </>

@@ -18,15 +18,39 @@ import {
   updateQuestion as updateQuestionRecord,
   type QuestionFilters,
 } from "@/server/services/questions";
+import { QuestionBankStatus } from "@/generated/prisma/client";
+import {
+  questionDeletionSchema,
+  questionStatusChangeSchema,
+} from "@/server/services/question-actions-schema";
 import {
   questionInputSchema,
+  questionIdSchema,
   validateQuestionImage,
   type ImportQuestion,
   type QuestionStatus,
 } from "@/server/services/questions-schema";
 import { prisma } from "@/server/db";
 
-const questionIdSchema = z.string().cuid();
+const editableQuestionStatusSchema = z.enum([
+  QuestionBankStatus.PUBLISHED,
+  QuestionBankStatus.DRAFT,
+]);
+
+function validationError(
+  issues: { path: PropertyKey[]; message: string }[],
+  fallback: string,
+  defaultField?: string,
+) {
+  if (process.env.NODE_ENV !== "development") return fallback;
+  const details = issues
+    .map(
+      (issue) =>
+        `${issue.path.join(".") || defaultField || "input"}: ${issue.message}`,
+    )
+    .join("; ");
+  return details ? `${fallback} (${details})` : fallback;
+}
 
 const listFiltersSchema = z.object({
   search: z.string().trim().max(120).default(""),
@@ -102,8 +126,17 @@ export async function createQuestion(input: unknown, status: QuestionStatus) {
   const access = await requireRole("ADMIN");
   const validated = validateInput(input);
   if (!validated.success) return validated;
-  const parsedStatus = z.enum(["PUBLISHED", "DRAFT"]).safeParse(status);
-  if (!parsedStatus.success) return { success: false as const, error: "Status soal tidak valid." };
+  const parsedStatus = editableQuestionStatusSchema.safeParse(status);
+  if (!parsedStatus.success) {
+    return {
+      success: false as const,
+      error: validationError(
+        parsedStatus.error.issues,
+        "Status soal tidak valid.",
+        "status",
+      ),
+    };
+  }
   const question = await createQuestionRecord(
     validated.data,
     parsedStatus.data,
@@ -118,8 +151,17 @@ export async function updateQuestion(input: unknown, status: QuestionStatus) {
   const validated = validateInput(input);
   if (!validated.success) return validated;
   if (!validated.data.id) return { success: false as const, error: "ID soal wajib diisi." };
-  const parsedStatus = z.enum(["PUBLISHED", "DRAFT"]).safeParse(status);
-  if (!parsedStatus.success) return { success: false as const, error: "Status soal tidak valid." };
+  const parsedStatus = editableQuestionStatusSchema.safeParse(status);
+  if (!parsedStatus.success) {
+    return {
+      success: false as const,
+      error: validationError(
+        parsedStatus.error.issues,
+        "Status soal tidak valid.",
+        "status",
+      ),
+    };
+  }
   const question = await updateQuestionRecord(
     { ...validated.data, id: validated.data.id },
     parsedStatus.data,
@@ -129,16 +171,21 @@ export async function updateQuestion(input: unknown, status: QuestionStatus) {
   return { success: true as const, question };
 }
 
-export async function setQuestionStatus(input: unknown, status: QuestionStatus) {
+export async function setQuestionStatus(input: unknown) {
   const access = await requireRole("ADMIN");
-  const parsedId = questionIdSchema.safeParse(input);
-  const parsedStatus = z.enum(["PUBLISHED", "DRAFT", "ARCHIVED"]).safeParse(status);
-  if (!parsedId.success || !parsedStatus.success) {
-    return { success: false as const, error: "Data perubahan status tidak valid." };
+  const parsed = questionStatusChangeSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false as const,
+      error: validationError(
+        parsed.error.issues,
+        "Data perubahan status tidak valid.",
+      ),
+    };
   }
   const question = await setQuestionRecordStatus(
-    parsedId.data,
-    parsedStatus.data,
+    parsed.data.id,
+    parsed.data.status,
     access.user.id,
   );
   revalidateQuestionPages();
@@ -147,9 +194,14 @@ export async function setQuestionStatus(input: unknown, status: QuestionStatus) 
 
 export async function deleteQuestion(input: unknown) {
   const access = await requireRole("ADMIN");
-  const parsed = questionIdSchema.safeParse(input);
-  if (!parsed.success) return { success: false as const, error: "ID soal tidak valid." };
-  await deleteQuestionRecord(parsed.data, access.user.id);
+  const parsed = questionDeletionSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      success: false as const,
+      error: validationError(parsed.error.issues, "ID soal tidak valid."),
+    };
+  }
+  await deleteQuestionRecord(parsed.data.id, access.user.id);
   revalidateQuestionPages();
   return { success: true as const };
 }
