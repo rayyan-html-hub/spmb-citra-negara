@@ -311,6 +311,7 @@ model Applicant {
   id                 String        @id @default(cuid())
   userId             String        @unique
   registrationNumber String?       @unique
+  nisn               String?       @unique
   nationalId         String?       @unique
   fullName           String
   birthPlace         String?

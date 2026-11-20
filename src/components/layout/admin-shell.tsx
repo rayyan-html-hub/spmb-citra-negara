@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { Suspense, useState, type ReactNode } from "react";
 import { Footer } from "@/components/layout/footer";
 import { academicYear, year } from "@/config/site";
 import { PageHeader } from "@/components/ui/page-header";
@@ -48,7 +48,9 @@ const adminNavigation = [
 
 function getCurrentPage(pathname: string) {
   return (
-    adminNavigation.find((item) => item.href === pathname) ?? adminNavigation[0]
+    adminNavigation.find(
+      (item) => item.href === pathname || pathname.startsWith(`${item.href}/`),
+    ) ?? adminNavigation[0]
   );
 }
 
@@ -147,6 +149,14 @@ function AdminSignOutButton() {
 }
 
 export function AdminShell({ children }: { children: ReactNode }) {
+  return (
+    <Suspense fallback={<>{children}</>}>
+      <AdminShellContent>{children}</AdminShellContent>
+    </Suspense>
+  );
+}
+
+function AdminShellContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const currentPage = getCurrentPage(pathname);
   const [drawerOpen, setDrawerOpen] = useState(false);
