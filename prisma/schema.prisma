@@ -146,6 +146,7 @@ enum TestConnectionStatus {
 enum EligibilityStatus {
   PENDING
   ELIGIBLE
+  CONDITIONALLY_ELIGIBLE
   INELIGIBLE
   OVERRIDDEN
 }
@@ -389,6 +390,7 @@ model Wave {
   status           WaveStatus        @default(UPCOMING)
   registrations    Registration[]
   eligibilityRules EligibilityRule[]
+  eligibilityAssessments EligibilityAssessment[]
   selectionResults SelectionResult[]
   publications     Publication[]
   announcements    Announcement[]
@@ -412,6 +414,7 @@ model Major {
   invoices               Invoice[]
   eligibilityRules       EligibilityRule[]
   eligibilityOverrides   EligibilityOverride[]
+  eligibilityAssessments EligibilityAssessment[]
   selectionResults       SelectionResult[]
   announcements          Announcement[]
   createdAt              DateTime              @default(now())
@@ -441,6 +444,7 @@ model Registration {
   invoices             Invoice[]
   testAttempts         TestAttempt[]
   eligibilityOverrides EligibilityOverride[]
+  eligibilityAssessments EligibilityAssessment[]
   selectionResults     SelectionResult[]
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
@@ -735,6 +739,7 @@ model EligibilityRule {
   wave               Wave?                 @relation(fields: [waveId], references: [id], onDelete: Cascade)
   major              Major?                @relation(fields: [majorId], references: [id], onDelete: Cascade)
   overrides          EligibilityOverride[]
+  assessments        EligibilityAssessment[]
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
 
@@ -744,14 +749,40 @@ model EligibilityRule {
   @@index([createdAt])
 }
 
+model EligibilityAssessment {
+  id              String           @id @default(cuid())
+  registrationId  String
+  waveId          String
+  majorId         String
+  ruleId          String?
+  finalScore      Float
+  minimumScore    Float
+  status          EligibilityStatus
+  calculatedAt    DateTime         @default(now())
+  registration    Registration     @relation(fields: [registrationId], references: [id], onDelete: Cascade)
+  wave            Wave             @relation(fields: [waveId], references: [id], onDelete: Restrict)
+  major           Major            @relation(fields: [majorId], references: [id], onDelete: Restrict)
+  rule            EligibilityRule? @relation(fields: [ruleId], references: [id], onDelete: SetNull)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  @@unique([registrationId, waveId])
+  @@index([waveId, status])
+  @@index([majorId])
+  @@index([ruleId])
+}
+
 model EligibilityOverride {
   id             String            @id @default(cuid())
   registrationId String
   ruleId         String?
   majorId        String?
   reviewerId     String
+  originalStatus EligibilityStatus?
   status         EligibilityStatus
   reason         String
+  supportingFileName String?
+  supportingFileKey String?
   registration   Registration      @relation(fields: [registrationId], references: [id], onDelete: Cascade)
   rule           EligibilityRule?  @relation(fields: [ruleId], references: [id], onDelete: SetNull)
   major          Major?            @relation(fields: [majorId], references: [id], onDelete: SetNull)

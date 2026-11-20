@@ -9,6 +9,7 @@ import {
   createRegistrationNumber,
   year,
 } from "../src/config/site";
+import { averageTkaScore } from "../src/lib/tka-scoring";
 
 const REGISTRATION_COUNT = 480;
 const PAID_COUNT = 320;
@@ -1115,9 +1116,7 @@ async function main() {
         roundToThree(target + 1),
         roundToThree(target + 1),
       ];
-      const finalScore = roundToThree(
-        subjects.reduce((total, score) => total + score, 0) / subjects.length,
-      );
+      const finalScore = averageTkaScore(subjects);
       scoreByRegistration.set(candidate.registrationNumber, {
         subjects,
         finalScore,
@@ -1533,6 +1532,21 @@ async function main() {
     data: selectionResults,
     skipDuplicates: true,
   });
+  await prisma.eligibilityAssessment.createMany({
+    data: selectionResults.map((result) => ({
+      id: `seed-eligibility-${result.registrationId}`,
+      registrationId: result.registrationId,
+      waveId: result.waveId,
+      majorId: result.majorId,
+      finalScore: result.finalScore,
+      minimumScore: 70,
+      status: result.finalScore >= 70 ? "ELIGIBLE" : "INELIGIBLE",
+      calculatedAt: wib("01-24T10:00:00"),
+      createdAt: wib("01-24T10:00:00"),
+      updatedAt: wib("01-24T10:00:00"),
+    })),
+    skipDuplicates: true,
+  });
 
   const announcements = [
     {
@@ -1912,6 +1926,27 @@ async function main() {
   assertCount("Hasil lulus", paidResultCount, 240);
   assertCount("Hasil cadangan", waitlistResultCount, 30);
   assertCount("Hasil tidak lulus", failedResultCount, 30);
+  const [assessmentCount, eligibleAssessmentCount, ineligibleAssessmentCount] =
+    await Promise.all([
+      prisma.eligibilityAssessment.count({
+        where: { id: { startsWith: "seed-eligibility-" } },
+      }),
+      prisma.eligibilityAssessment.count({
+        where: {
+          id: { startsWith: "seed-eligibility-" },
+          status: "ELIGIBLE",
+        },
+      }),
+      prisma.eligibilityAssessment.count({
+        where: {
+          id: { startsWith: "seed-eligibility-" },
+          status: "INELIGIBLE",
+        },
+      }),
+    ]);
+  assertCount("Peserta selesai TKA", assessmentCount, 300);
+  assertCount("Peserta memenuhi ambang TKA", eligibleAssessmentCount, 270);
+  assertCount("Peserta di bawah ambang TKA", ineligibleAssessmentCount, 30);
   const seededScores = [...scoreByRegistration.values()].map(
     (score) => score.finalScore,
   );

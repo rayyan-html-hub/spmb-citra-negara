@@ -19,3 +19,9 @@
 - Migrasi B4 hanya menambahkan ruangan dan opsi acak pada `TestSession`, waktu tambahan, koneksi, serta nilai per mata uji pada `TestAttempt`, dan tabel `TestSupervisionLog`; data sesi dan attempt lama tetap dipertahankan.
 - Sesi yang sedang berlangsung hanya dapat diubah pada kuota, dan nilainya tidak boleh turun di bawah jumlah peserta yang sudah dialokasikan.
 - Nilai per mata uji memakai seluruh soal Aktif pada empat mata uji sebagai bobot total, sehingga jawaban yang belum diisi tidak mengurangi denominator. Nilai hanya disimpan ketika attempt selesai.
+
+## Kelayakan TKA dan Seleksi
+
+- Hasil kelayakan disimpan per peserta dan gelombang; override menjadi catatan terpisah yang tidak mengubah nilai TKA asli.
+- Dokumen pendukung override disimpan pada private Vercel Blob dengan nama acak. Nama asli dan pathname privat disimpan di database; unggahan memerlukan private Blob store yang terhubung di Vercel atau `BLOB_READ_WRITE_TOKEN` lokal.
+- Hasil seleksi yang belum dipublikasikan disimpan sebagai versi `Publication` berstatus draf/ditinjau. Siswa hanya boleh membaca hasil dari versi yang dipublikasikan.
