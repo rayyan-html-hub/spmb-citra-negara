@@ -7,3 +7,9 @@
 - Kode OTP dapat dicoba maksimal 5 kali. Percobaan kelima mengunci verifikasi selama 15 menit; pengiriman ulang hanya tersedia setelah 60 detik dan tidak melewati masa kunci.
 - Sesi admin tetap tertahan di halaman OTP sampai `otpVerifiedAt` tersimpan di database. Cookie Better Auth memakai `HttpOnly`, `SameSite=Lax`, dan `Secure` di production.
 - Resend digunakan saat `RESEND_API_KEY` tersedia. Jika kosong, kode hanya dicetak di console server pada mode development; aplikasi production menolak pengiriman.
+
+## Bank Soal TKA
+
+- Status, tingkat kesulitan, kode unik, dan gambar disimpan per soal. `QuestionBank.status` lama tetap dipertahankan untuk kompatibilitas bank yang sudah dirujuk sesi tes; status soal menjadi sumber kebenaran untuk daftar dan soal aktif.
+- Migrasi Bank Soal hanya menambahkan kolom dan mengisi kode/status dari bank yang sudah ada; tidak ada tabel atau data soal yang dihapus.
+- Gambar soal untuk tahap ini disimpan sebagai byte di kolom database dengan validasi magic bytes dan batas 2 MB. Lapisan ini dapat diganti Vercel Blob privat; jangan mengandalkan filesystem deployment.

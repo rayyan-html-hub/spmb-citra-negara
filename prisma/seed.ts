@@ -801,6 +801,15 @@ async function main() {
     documentIdsByRegistration.set(candidate.registrationId, perTypeIds);
   }
   await prisma.document.createMany({ data: documents, skipDuplicates: true });
+  for (const status of ["VERIFIED", "UNDER_REVIEW", "NEEDS_REVISION"] as const) {
+    const ids = documents
+      .filter((document) => document.status === status)
+      .map((document) => document.id);
+    await prisma.document.updateMany({
+      where: { id: { in: ids } },
+      data: { status, updatedAt: wib("01-16T10:30:00") },
+    });
+  }
   await prisma.documentReview.createMany({
     data: documentReviews,
     skipDuplicates: true,
@@ -956,19 +965,50 @@ async function main() {
       const publishedIds = publishedQuestionIdsBySubject.get(subject.key) ?? [];
       for (let order = 1; order <= questionCount; order += 1) {
         const questionId = `seed-question-${subject.code.toLowerCase()}-${bankType.toLowerCase()}-${pad(order, 3)}`;
+        const codeSequence = bankType === "PUBLISHED" ? order : 25 + order;
+        const code = `${subject.code}-${pad(codeSequence, 3)}`;
+        const isSampleQuestion = bankType === "PUBLISHED" && order === 1;
+        const isEnglishExample =
+          subject.key === "LITERASI_BAHASA_INGGRIS" && order === 1;
+        const isPublished =
+          bankType === "PUBLISHED" ? !isEnglishExample : isEnglishExample;
+        const sampleData: Record<
+          string,
+          { prompt: string; options: [string, string, string, string]; answer: number }
+        > = {
+          PENALARAN_MATEMATIKA: {
+            prompt: "Jika 3x + 7 = 22, nilai x adalah …",
+            options: ["3", "4", "5", "6"],
+            answer: 2,
+          },
+          LITERASI_BAHASA_INDONESIA: {
+            prompt: "Ide pokok paragraf terletak pada …",
+            options: ["Kalimat penjelas", "Kalimat utama", "Judul bacaan", "Catatan kaki"],
+            answer: 1,
+          },
+          LITERASI_BAHASA_INGGRIS: {
+            prompt: "Choose the correct sentence.",
+            options: ["She goes to school every day.", "She go to school every day.", "She going to school every day.", "She gone to school every day."],
+            answer: 0,
+          },
+        };
+        const sample = sampleData[subject.key];
         questionRows.push({
           id: questionId,
+          code,
           questionBankId: bankId,
           type: "SINGLE_CHOICE" as const,
-          prompt: `${subject.name}: soal contoh ${pad(order, 3)}.`,
+          difficulty: isSampleQuestion ? (subject.key === "PENALARAN_MATEMATIKA" ? "EASY" as const : "MEDIUM" as const) : (order % 3 === 0 ? "HARD" as const : order % 2 === 0 ? "MEDIUM" as const : "EASY" as const),
+          status: isPublished ? "PUBLISHED" as const : "DRAFT" as const,
+          prompt: isSampleQuestion && sample ? sample.prompt : `${subject.name}: soal contoh ${pad(order, 3)}.`,
           explanation: "Soal contoh untuk data demonstrasi.",
           points: 10,
           order,
-          isActive: bankType === "PUBLISHED",
+          isActive: isPublished,
           createdAt: wib("01-06T00:00:00"),
           updatedAt: wib("01-16T10:30:00"),
         });
-        if (bankType === "PUBLISHED") {
+        if (isPublished) {
           publishedIds.push(questionId);
         }
         for (const [optionIndex, optionText] of [
@@ -978,14 +1018,24 @@ async function main() {
           "Pilihan D",
         ].entries()) {
           const optionId = `${questionId}-option-${optionIndex + 1}`;
+          const text =
+            isSampleQuestion && sample
+              ? sample.options[optionIndex]
+              : optionText;
           questionOptionRows.push({
             id: optionId,
             questionId,
-            text: optionText,
-            isCorrect: optionIndex === 2,
+            text,
+            isCorrect: isSampleQuestion && sample
+              ? optionIndex === sample.answer
+              : optionIndex === 2,
             order: optionIndex + 1,
           });
-          if (optionIndex === 2) {
+          if (
+            isSampleQuestion && sample
+              ? optionIndex === sample.answer
+              : optionIndex === 2
+          ) {
             correctOptionIdsByQuestion.set(questionId, optionId);
           }
         }
@@ -1003,10 +1053,28 @@ async function main() {
     data: questionRows,
     skipDuplicates: true,
   });
+  for (const question of questionRows) {
+    await prisma.question.update({
+      where: { id: question.id },
+      data: {
+        code: question.code,
+        difficulty: question.difficulty,
+        status: question.status,
+        prompt: question.prompt,
+        isActive: question.isActive,
+      },
+    });
+  }
   await prisma.questionOption.createMany({
     data: questionOptionRows,
     skipDuplicates: true,
   });
+  for (const option of questionOptionRows) {
+    await prisma.questionOption.update({
+      where: { id: option.id },
+      data: { text: option.text, isCorrect: option.isCorrect },
+    });
+  }
 
   const rplRankOrder = candidates
     .filter((candidate) => candidate.majorCode === "RPL")
@@ -1605,8 +1673,18 @@ async function main() {
       },
     }),
   ]);
-  assertCount("Soal sudah ditinjau", publishedQuestionCount, 100);
-  assertCount("Soal belum ditinjau", draftQuestionCount, 20);
+  assertCount("Jumlah soal di bank Aktif", publishedQuestionCount, 100);
+  assertCount("Jumlah soal di bank Draf", draftQuestionCount, 20);
+  assertCount(
+    "Soal berstatus Aktif",
+    await prisma.question.count({ where: { status: "PUBLISHED" } }),
+    100,
+  );
+  assertCount(
+    "Soal berstatus Draf",
+    await prisma.question.count({ where: { status: "DRAFT" } }),
+    20,
+  );
   assertCount("Pengumuman TKA dibaca", publishedReadCount, 420);
   assertCount("Panduan pembayaran dibaca", paymentReadCount, 456);
 

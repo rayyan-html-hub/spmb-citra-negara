@@ -116,6 +116,12 @@ enum QuestionType {
   TRUE_FALSE
 }
 
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
 enum TestSessionStatus {
   DRAFT
   SCHEDULED
@@ -582,19 +588,24 @@ model QuestionBank {
 }
 
 model Question {
-  id             String           @id @default(cuid())
+  id             String             @id @default(cuid())
+  code           String             @unique
   questionBankId String
-  type           QuestionType     @default(SINGLE_CHOICE)
+  type           QuestionType       @default(SINGLE_CHOICE)
+  difficulty     QuestionDifficulty @default(MEDIUM)
+  status         QuestionBankStatus @default(DRAFT)
   prompt         String
   explanation    String?
-  points         Float            @default(1)
+  points         Float              @default(1)
+  imageData      Bytes?
+  imageMimeType  String?
   order          Int
-  isActive       Boolean          @default(true)
-  questionBank   QuestionBank     @relation(fields: [questionBankId], references: [id], onDelete: Cascade)
+  isActive       Boolean            @default(true)
+  questionBank   QuestionBank       @relation(fields: [questionBankId], references: [id], onDelete: Cascade)
   options        QuestionOption[]
   answers        Answer[]
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   @@unique([questionBankId, order])
   @@index([questionBankId])
