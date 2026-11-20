@@ -14,7 +14,13 @@ import {
   X,
 } from "lucide-react";
 import Image from "next/image";
-import { useRef, useState, useTransition, type ChangeEvent } from "react";
+import {
+  useReducer,
+  useRef,
+  useState,
+  useTransition,
+  type ChangeEvent,
+} from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
@@ -39,6 +45,14 @@ import {
   type QuestionStatus,
 } from "@/server/services/questions-schema";
 import type { TestSubject } from "@/generated/prisma/client";
+import {
+  emptyQuestionEditor,
+  questionEditorHasChanges,
+  questionEditorReducer,
+  questionEditorStateFromDetail,
+  type QuestionEditorDetail,
+  type QuestionEditorState,
+} from "@/app/admin/bank-soal/question-editor-state";
 
 type Summary = { total: number; active: number; drafts: number; subjects: number };
 type QuestionRow = {
@@ -49,19 +63,6 @@ type QuestionRow = {
   status: QuestionStatus;
   points: number;
   questionBank: { subject: TestSubject };
-};
-type QuestionDetail = {
-  id: string;
-  code: string;
-  prompt: string;
-  explanation: string | null;
-  points: number;
-  difficulty: QuestionDifficulty;
-  status: QuestionStatus;
-  imageDataBase64: string | null;
-  imageMimeType: string | null;
-  questionBank: { subject: TestSubject };
-  options: { id: string; text: string; isCorrect: boolean; order: number }[];
 };
 type ListData = {
   rows: QuestionRow[];
@@ -76,35 +77,6 @@ type ImportPreview = {
   validCount: number;
   duplicateCount: number;
 };
-type EditorState = {
-  id?: string;
-  status?: QuestionStatus;
-  subject: TestSubject;
-  difficulty: QuestionDifficulty;
-  points: number;
-  prompt: string;
-  options: { text: string; isCorrect: boolean }[];
-  explanation: string;
-  imageDataBase64: string | null;
-  imageMimeType: string | null;
-};
-
-const emptyEditor = (): EditorState => ({
-  subject: "PENALARAN_MATEMATIKA",
-  difficulty: "EASY",
-  points: 1,
-  prompt: "",
-  options: [
-    { text: "", isCorrect: false },
-    { text: "", isCorrect: false },
-    { text: "", isCorrect: false },
-    { text: "", isCorrect: false },
-  ],
-  explanation: "",
-  imageDataBase64: null,
-  imageMimeType: null,
-});
-
 const subjectOptions = Object.entries(QUESTION_SUBJECT_LABELS) as [
   TestSubject,
   string,
@@ -120,24 +92,6 @@ const statusLabels: Record<QuestionStatus, string> = {
   ARCHIVED: "Arsip",
 };
 const letters = ["A", "B", "C", "D"];
-
-function decodeQuestion(detail: QuestionDetail): EditorState {
-  return {
-    id: detail.id,
-      status: detail.status,
-    subject: detail.questionBank.subject,
-    difficulty: detail.difficulty,
-    points: detail.points,
-    prompt: detail.prompt,
-    options: letters.map((_, index) => ({
-      text: detail.options[index]?.text ?? "",
-      isCorrect: detail.options[index]?.isCorrect ?? false,
-    })),
-    explanation: detail.explanation ?? "",
-    imageDataBase64: detail.imageDataBase64,
-    imageMimeType: detail.imageMimeType,
-  };
-}
 
 function renderFormattedPrompt(prompt: string) {
   const tokens = /(\*\*[^*]+\*\*|\*[^*]+\*|\+\+[^+]+\+\+|\\\([^)]*\\\))/g;
@@ -174,14 +128,22 @@ export function BankSoalManager({
   initialSummary,
 }: {
   initialList: ListData;
-  initialQuestion: QuestionDetail | null;
+  initialQuestion: QuestionEditorDetail | null;
   initialSummary: Summary;
 }) {
   const [list, setList] = useState(initialList);
   const [summary, setSummary] = useState(initialSummary);
-  const [editor, setEditor] = useState(
-    initialQuestion ? decodeQuestion(initialQuestion) : emptyEditor(),
+  const initialEditor = initialQuestion
+    ? questionEditorStateFromDetail(initialQuestion)
+    : emptyQuestionEditor();
+  const [editor, dispatchEditor] = useReducer(
+    questionEditorReducer,
+    initialEditor,
   );
+  const [savedEditor, setSavedEditor] = useState(initialEditor);
+  const [pendingSelection, setPendingSelection] = useState<
+    { type: "question"; id: string } | { type: "new" } | null
+  >(null);
   const [search, setSearch] = useState("");
   const [subjectFilter, setSubjectFilter] = useState("ALL");
   const [difficultyFilter, setDifficultyFilter] = useState("ALL");
@@ -195,9 +157,27 @@ export function BankSoalManager({
   const [isLoading, startLoading] = useTransition();
   const [isSaving, startSaving] = useTransition();
   const [isBusy, setIsBusy] = useState(false);
+  const [isLoadingQuestion, setIsLoadingQuestion] = useState(false);
+  const editorSectionRef = useRef<HTMLElement>(null);
+  const selectionRequestRef = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
   const imageInput = useRef<HTMLInputElement>(null);
   const promptInput = useRef<HTMLTextAreaElement>(null);
+  const editorHasChanges = questionEditorHasChanges(editor, savedEditor);
+
+  function updateEditor<K extends keyof QuestionEditorState>(
+    key: K,
+    value: QuestionEditorState[K],
+  ) {
+    if (isLoadingQuestion) {
+      selectionRequestRef.current += 1;
+      setIsLoadingQuestion(false);
+    }
+    dispatchEditor({
+      type: "update",
+      update: (current) => ({ ...current, [key]: value }),
+    });
+  }
 
   async function refresh(nextPage = 1) {
     setLoadError("");
@@ -219,19 +199,83 @@ export function BankSoalManager({
     });
   }
 
-  async function selectQuestion(id: string) {
+  function scrollToEditor() {
+    requestAnimationFrame(() =>
+      editorSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      }),
+    );
+  }
+
+  async function loadQuestion(id: string) {
     setLoadError("");
+    const requestId = ++selectionRequestRef.current;
+    setIsLoadingQuestion(true);
     try {
       const result = await getQuestion(id);
       if (!result.success) throw new Error(result.error);
-      setEditor(decodeQuestion(result.question as QuestionDetail));
+      if (requestId !== selectionRequestRef.current) return;
+      const question = result.question as QuestionEditorDetail;
+      const nextEditor = questionEditorStateFromDetail(question);
+      dispatchEditor({ type: "load", question });
+      setSavedEditor(nextEditor);
     } catch (error) {
-      setLoadError(error instanceof Error ? error.message : "Detail soal gagal dimuat.");
+      if (requestId === selectionRequestRef.current) {
+        setLoadError(
+          error instanceof Error
+            ? error.message
+            : "Detail soal gagal dimuat.",
+        );
+      }
+    } finally {
+      if (requestId === selectionRequestRef.current) {
+        setIsLoadingQuestion(false);
+      }
     }
   }
 
-  function updateEditor<K extends keyof EditorState>(key: K, value: EditorState[K]) {
-    setEditor((current) => ({ ...current, [key]: value }));
+  function requestQuestionSelection(id: string) {
+    scrollToEditor();
+    if (editor.id === id) {
+      selectionRequestRef.current += 1;
+      setIsLoadingQuestion(false);
+      return;
+    }
+    if (editorHasChanges) {
+      selectionRequestRef.current += 1;
+      setIsLoadingQuestion(false);
+      setPendingSelection({ type: "question", id });
+      return;
+    }
+    void loadQuestion(id);
+  }
+
+  function resetEditor() {
+    selectionRequestRef.current += 1;
+    setIsLoadingQuestion(false);
+    const nextEditor = emptyQuestionEditor();
+    dispatchEditor({ type: "reset", state: nextEditor });
+    setSavedEditor(nextEditor);
+  }
+
+  function requestNewQuestion() {
+    scrollToEditor();
+    if (editorHasChanges) {
+      setPendingSelection({ type: "new" });
+      return;
+    }
+    resetEditor();
+  }
+
+  async function discardAndContinue() {
+    const selection = pendingSelection;
+    setPendingSelection(null);
+    if (selection?.type === "question") {
+      await loadQuestion(selection.id);
+    } else if (selection?.type === "new") {
+      resetEditor();
+    }
   }
 
   function formatPrompt(marker: string, linePrefix = "") {
@@ -286,7 +330,7 @@ export function BankSoalManager({
         setToast({ title: "Soal berhasil disimpan", message: `Status: ${statusLabels[status]}.` });
         await refresh(list.page);
         if ("question" in result && result.question.id) {
-          await selectQuestion(result.question.id);
+          await loadQuestion(result.question.id);
         }
       } catch (error) {
         setToast({
@@ -309,12 +353,14 @@ export function BankSoalManager({
       if (currentAction === "archive") {
         const result = await setQuestionStatus(editor.id, "ARCHIVED");
         if (!result.success) throw new Error(result.error);
-        updateEditor("status", "ARCHIVED");
+        const archivedEditor = { ...editor, status: "ARCHIVED" as const };
+        dispatchEditor({ type: "reset", state: archivedEditor });
+        setSavedEditor(archivedEditor);
         setToast({ title: "Soal berhasil diarsipkan" });
       } else {
         const result = await deleteQuestion(editor.id);
         if (!result.success) throw new Error(result.error);
-        setEditor(emptyEditor());
+        resetEditor();
         setToast({ title: "Soal berhasil dihapus" });
       }
       await refresh(list.page);
@@ -409,10 +455,7 @@ export function BankSoalManager({
       <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-start">
         <div className="flex flex-wrap gap-3">
           <Button
-            onClick={() => {
-              setEditor(emptyEditor());
-              promptInput.current?.focus();
-            }}
+            onClick={requestNewQuestion}
           >
             Tambah soal <ArrowRight aria-hidden="true" size={17} />
           </Button>
@@ -538,7 +581,7 @@ export function BankSoalManager({
                         }`}>{statusLabels[question.status]}</span>
                       </td>
                       <td className="px-4 py-4">
-                        <button className="inline-flex items-center gap-1 font-medium text-green hover:underline" onClick={() => void selectQuestion(question.id)} type="button">
+                        <button className="inline-flex items-center gap-1 font-medium text-green hover:underline" onClick={() => requestQuestionSelection(question.id)} type="button">
                           Edit <ArrowRight aria-hidden="true" size={15} />
                         </button>
                       </td>
@@ -574,13 +617,23 @@ export function BankSoalManager({
         </div>
       </section>
 
-      <section className="rounded-card border border-line bg-white p-6">
+      <section
+        aria-busy={isLoadingQuestion}
+        className="scroll-mt-6 rounded-card border border-line bg-white p-6"
+        key={editor.id ?? "new-question"}
+        ref={editorSectionRef}
+      >
         <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-xl font-semibold text-ink">
-            Editor soal{editor.id ? ` · ${list.rows.find((row) => row.id === editor.id)?.code ?? "Soal"}` : " · Soal baru"}
+            Editor soal{editor.code ? ` · ${editor.code}` : " · Soal baru"}
           </h2>
           <Button onClick={() => { setPreviewOpen(true); setShowKey(false); }} variant="secondary">Pratinjau</Button>
         </div>
+        {isLoadingQuestion && (
+          <p className="mb-4 text-sm text-muted" role="status">
+            Memuat data soal...
+          </p>
+        )}
         <div className="grid gap-3 md:grid-cols-3">
           <label className="rounded-xl border border-line p-4 text-sm">
             <span className="block text-xs text-muted">Mata uji</span>
@@ -719,6 +772,29 @@ export function BankSoalManager({
           </Button>
         </section>
       )}
+
+      <Modal
+        open={pendingSelection !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingSelection(null);
+        }}
+        title="Buang perubahan yang belum disimpan?"
+      >
+        <p className="text-sm text-muted">
+          Perubahan pada editor akan hilang jika Anda berpindah ke soal lain.
+        </p>
+        <div className="mt-5 flex justify-end gap-3">
+          <Button
+            onClick={() => setPendingSelection(null)}
+            variant="secondary"
+          >
+            Tetap di editor
+          </Button>
+          <Button onClick={() => void discardAndContinue()}>
+            Buang perubahan
+          </Button>
+        </div>
+      </Modal>
 
       <Modal open={previewOpen} onOpenChange={setPreviewOpen} title="Pratinjau soal">
         <div className="space-y-4">
